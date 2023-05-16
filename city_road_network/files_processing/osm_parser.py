@@ -1,15 +1,11 @@
 import csv
 import os
-from collections import defaultdict
 from datetime import datetime
 
 import pandas as pd
-from files_processing.unwind_ways import unwind_ways
 from lxml import etree
 from utils.utils import (
     CACHE_DIR,
-    check_node_tags,
-    check_way_tags,
     get_attrs_from_tags,
     get_cache_subdir,
     get_csv_head,
@@ -18,13 +14,11 @@ from utils.utils import (
     get_filtered_way_attrs,
     get_logger,
     get_max_speed,
-    is_road1,
 )
 
 logger = get_logger(__name__)
 
 
-# TODO read from files when parsing isn't needed
 class OSMParser:
     SELECTED_STREETS = ()  # for debug and exploration purposes
 

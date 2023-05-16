@@ -8,7 +8,7 @@ from shapely import Point
 from shapely.geometry import shape
 
 from city_road_network.config import ghsl_shape_url, ghsl_tile_url_template
-from city_road_network.utils.utils import convert_coordinates, get_cache_subdir, get_logger
+from city_road_network.utils.utils import get_cache_subdir, get_logger
 
 logger = get_logger(__name__)
 

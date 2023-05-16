@@ -1,12 +1,11 @@
-avg_daily_trips_per_veh = 3.6
-avg_household_size = 2.4
-avg_vehs_per_household = 0.8
+default_avg_daily_trips_per_veh = 3.6  # derived from NHTS
+default_avg_household_size = 2.1  # Average in Russia https://rosstat.gov.ru/vpn_popul
+default_avg_vehs_per_household = 0.62  # from https://rosstat.gov.ru/folder/13397
 
 default_city_name = "default_city"
 default_crs = "epsg:4326"
-overpass_endpoint = "https://overpass-api.de/api"
-overpass_rate_limit = True
-overpass_settings = "[out:json][timeout:{timeout}]{maxsize}"
+
+
 default_access = '["access"!~"private"]'
 default_osm_filter = (
     f'["highway"]["area"!~"yes"]{default_access}'
@@ -17,18 +16,18 @@ default_osm_filter = (
     f'["service"!~"alley|driveway|emergency_access|parking|parking_aisle|private"]'
 )
 timeout = 180
+
 CACHE_DIR = "cache"
 DATA_DIR = "data"
-use_cache = True
-
-default_accept_language = "en"
-default_referer = "OSMnx Python package (https://github.com/gboeing/osmnx)"
-default_user_agent = "OSMnx Python package (https://github.com/gboeing/osmnx)"
-overpass_requests_kwargs = {}
+PLOTS_DIR = "plots"
+HTML_DIR = "htmls"
 
 ghsl_shape_url = "https://ghsl.jrc.ec.europa.eu/download/GHSL_data_54009_shapefile.zip"
 ghsl_tile_url_template = "https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/GHSL/GHS_POP_GLOBE_R2022A/GHS_POP_E2020_GLOBE_R2022A_54009_100/V1-0/tiles/GHS_POP_E2020_GLOBE_R2022A_54009_100_V1_0_{tile_id}.zip"
-default_map_location = (59.9342, 30.3256)
+
+rus_pop_url = "https://rosstat.gov.ru/storage/mediabank/Tom8_tab2_VPN-2020.xlsx"
+nhts_url = "https://nhts.ornl.gov/assets/2016/download/csv.zip"
+
 lane_capacity_mapping = {
     1: 1800,  # in one direction
     2: 1800,  # in one direction
@@ -52,22 +51,42 @@ highway_color_mapping = {
     "residential": "#A600FF",
     "unclassified": "#632A00",
     "road": "#632A00",
+    "busway": "#632A00",
+    "service": "#A600FF",
+    "footway": "#A600FF",
     "trunk": "#FF7400",
     "trunk_link": "#FF7400",
     "living_street": "#1BFC2F",
 }
 
+known_highways = list(highway_color_mapping.keys())
 
 speed_map = {
-    "RU_urban": 60,
-    "RU_rural": 90,
-    "RU_living_street": 20,
-    "RU_motorway": 110,
     "RU:urban": 60,
     "RU:rural": 90,
     "RU:living_street": 20,
     "RU:motorway": 110,
+    "DE:urban": 50,
+    "DE:rural": 100,
+    "DE:living_street": 7,
+    "DE:motorway": 130,  # legally it is unlimited though
+    "DE:bicycle_road": 30,
+    "FR:urban": 50,
+    "FR:rural": 80,
+    "FR:zone30": 30,
+    "FR:motorway": 130,
+    "GB:motorway": 113,
+    "GB:national": 113,
+    "GB:nsl_dual": 113,
+    "GB:nsl_single": 96,
     None: None,
+}
+
+default_speed_map = {
+    "living_street": speed_map["RU:living_street"],
+    "motorway": speed_map["RU:motorway"],
+    "rural": speed_map["RU:rural"],
+    "urban": speed_map["RU:urban"],
 }
 
 whitelist_relation_attrs = {
@@ -185,96 +204,11 @@ landuse_rates = {
 }
 
 
-floor_area_multipliers = {"mall": 400}  # 400,000 SQ.FT.
-# NOT USED
-required_attrs = {"highway", "junction", "crossing", "public_transport"}
-
-# used in condition to ignore way/node based on their tags
-tags_to_ignore_nodes = {
-    "entrance": [],
-    "indoor": [],
-    # "barrier": [],
-    "was_barrier": [],
-    "access": ["private"],
-    "camera_mount": [],
-    "camera_type": [],
-    "surveillance": [],
-    "historic": [],
-    "addr_housenumber": [],
-    "amenity": [],
-    "shop": [],
-    "emergency": [],
-    "natural": [],
-    "man_made": [],
-    "opening_hours": [],
-    "tourism": [],
+floor_area_multipliers = {
+    "mall": 400,  # 400,000 SQ.FT.
 }
 
-tags_to_ignore_ways = {
-    "landuse": [  # trying to ignore all landuse ways
-        # "commercial",
-        # "grass",
-        # "recreation_ground",
-        # "flowerbed",
-        # "forest",
-        # "construction",
-        # "garages",
-        # "industrial",
-        # "religious",
-        # "orchard",
-        # "residential",
-        # "military",
-        # "cemetery",
-        # "brownfield",
-        # "retail",
-        # "railway",
-        # "farmyard",
-        # "allotments",
-        # "meadow"
-    ],
-    "was_landuse": [],
-    "public_transport": ["platform"],
-    "aeroway": [],
-    "route": ["ferry"],
-    "indoor": ["yes", "wall"],
-    "living_street": ["yes"],
-    "access": ["private"],
-    "motor_vehicle": ["private"],
-    "vehicle": ["private", "no"],
-    "tunnel": ["building_passage"],
-    "service": ["driveway", "parking_aisle"],
-    "boundary": ["administrative"],
-    "residential": ["urban"],
-    "place": ["square", "neighbourhood", "hamlet", "locality"],
-    "area": [],
-    "area_highway": [],
-    "amenity": [],
-    "disused_amenity": [],
-    "waterway": [],
-    "building_part": [],
-    "building_levels": [],
-    "sport": [],
-    "barrier": [],
-    "leisure": [],
-    "power": [],
-    "historic": [],
-    "natural": [],
-    "man_made": [],
-    "addr_housenumber": [],
-    "tourism": [],
-    "opening_hours": [],
-    "railway": [],
-    "building": [],
-    "shop": [],
-    "office": [],
-    "attraction": [],
-    "tomb": [],
-    "shelter": [],
-}
-
-tags_to_keep_ways = {"man_made": ["bridge"], "maxspeed": []}
-
-
+# Explicit mapping for colors to be same on all maps
 zones_color_map = {
     0: "#90a449",
     1: "#2a548c",

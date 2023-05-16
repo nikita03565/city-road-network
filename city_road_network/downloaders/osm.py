@@ -13,6 +13,7 @@ from city_road_network.config import (
     default_osm_filter,
     landuse_rates,
     shop_rates,
+    timeout,
     whitelist_node_attrs,
     whitelist_way_attrs,
 )
@@ -68,7 +69,7 @@ def _create_poly_from_response(members: dict) -> Polygon:
 
 
 def get_relation_poly(relation_id: int | str) -> Polygon:
-    payload = {"data": f"[out:json][timeout:180];rel({relation_id});out geom;"}
+    payload = {"data": f"[out:json][timeout:{timeout}];rel({relation_id});out geom;"}
     response = downloader.overpass_request(data=payload)
     poly = _create_poly_from_response(response["elements"][0]["members"])
     return poly
@@ -86,7 +87,7 @@ def get_admin_boundaries(poly: Polygon | MultiPolygon, admin_level: int | str = 
         payload_relations = {
             "data": (
                 f"[out:json]"
-                f"[timeout:180];"
+                f"[timeout:{timeout}];"
                 f"rel[admin_level={admin_level}]"
                 f"[type=boundary]"
                 f"[boundary=administrative](poly:'{poly_str}');"
@@ -114,7 +115,12 @@ def get_poi(poly: Polygon) -> gpd.GeoDataFrame:
         "shop": _get_tags(shop_rates),
         "landuse": _get_tags(landuse_rates),
     }
-    raw_df = geometries_from_polygon(poly, payload)
+
+    bbox = poly.bounds
+    bbox_points = [(bbox[0], bbox[1]), (bbox[0], bbox[3]), (bbox[2], bbox[3]), (bbox[2], bbox[1])]
+    bbox_poly = Polygon(bbox_points)
+
+    raw_df = geometries_from_polygon(bbox_poly, payload)
     desired_cols = ["geometry", "name", "amenity", "landuse", "shop"]
     df = raw_df[desired_cols].reset_index()
 
@@ -122,8 +128,8 @@ def get_poi(poly: Polygon) -> gpd.GeoDataFrame:
     return df
 
 
-def get_graph(poly: Polygon) -> nx.MultiDiGraph:
-    graph = ox.graph_from_polygon(poly, custom_filter=default_osm_filter)
+def get_graph(poly: Polygon, simplify: bool = True) -> nx.MultiDiGraph:
+    graph = ox.graph_from_polygon(poly, custom_filter=default_osm_filter, simplify=simplify)
     for node_id, node_data in graph.nodes(data=True):
         if ("lat" not in node_data) or ("lon" not in node_data):
             node_data["lat"] = node_data["y"]
@@ -131,8 +137,8 @@ def get_graph(poly: Polygon) -> nx.MultiDiGraph:
     return graph
 
 
-def get_osm_data(poly: Polygon) -> OSMData:
+def get_osm_data(poly: Polygon, admin_level: int | str = 8) -> OSMData:
     graph = get_graph(poly)
     poi = get_poi(poly)
-    zones = get_admin_boundaries(poly)
+    zones = get_admin_boundaries(poly, admin_level=admin_level)
     return OSMData(graph, poi, zones)

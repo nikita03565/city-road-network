@@ -159,5 +159,7 @@ nhts_survey/
 russtat_survey/
 plots/
 sumo_backup/
+notebooks/
 sumo/
 sumo_backup_new/
+vscode.env

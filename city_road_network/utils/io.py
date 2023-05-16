@@ -1,12 +1,7 @@
-import copy
-import csv
-import os
-
 import networkx as nx
 import pandas as pd
 
 from city_road_network.config import default_crs
-from city_road_network.utils.utils import get_csv_head
 
 START_NODE = "start_node"
 END_NODE = "end_node"

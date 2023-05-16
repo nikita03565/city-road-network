@@ -54,18 +54,6 @@ def get_random_node(graph: nx.MultiDiGraph, zone_id: str):
     return random.choice(filter_nodes(graph, zone_id))
 
 
-def calc_path_costs(graph: nx.MultiDiGraph, path: list[int]) -> PathNT:
-    len_km = 0
-    travel_time = 0
-    for i in range(len(path) - 1):
-        start_node = path[i]
-        end_node = path[i + 1]
-        edge = graph[start_node][end_node][0]
-        len_km += edge["length (km)"]
-        travel_time += edge["flow_time (s)"]
-    return PathNT(path, len_km, travel_time)
-
-
 def get_nodes_pair(graph: nx.MultiDiGraph, o_zone: int, d_zone: int, path_starts_ends=None, path_idx=None):
     if path_starts_ends is None:
         u = get_random_node(graph, str(o_zone))

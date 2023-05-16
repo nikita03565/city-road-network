@@ -25,7 +25,6 @@ def process_way(way, new_rows, nodes_ids, df_nodes):
     way_filtered_attrs = dict(way)
     nds = [nd for nd in way_filtered_attrs.pop("nds") if nd in nodes_ids]
 
-    way_name = way_filtered_attrs.get("name", "Road")
     way_filtered_attrs["highway"] = [way_filtered_attrs.get("highway", "")]
     one_way = way_filtered_attrs.get("oneway", "") == "yes"
     way_filtered_attrs["oneway"] = one_way

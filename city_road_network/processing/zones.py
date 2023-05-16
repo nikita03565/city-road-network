@@ -5,9 +5,9 @@ import pandas as pd
 from shapely import wkt
 
 from city_road_network.config import (
-    avg_daily_trips_per_veh,
-    avg_household_size,
-    avg_vehs_per_household,
+    default_avg_daily_trips_per_veh,
+    default_avg_household_size,
+    default_avg_vehs_per_household,
     default_crs,
 )
 from city_road_network.utils.utils import calc_poi_attraction, get_data_subdir, get_logger
@@ -16,7 +16,13 @@ from city_road_network.writers.csv import save_dataframe
 logger = get_logger(__name__)
 
 
-def process_zones(city_name=None):
+def process_zones(city_name=None, avg_hh_size=None, avg_vehs_per_hh=None, avg_trips_per_veh=None):
+    if avg_hh_size is None:
+        avg_hh_size = default_avg_household_size
+    if avg_vehs_per_hh is None:
+        avg_vehs_per_hh = default_avg_vehs_per_household
+    if avg_trips_per_veh is None:
+        avg_trips_per_veh = default_avg_daily_trips_per_veh
     data_dir = get_data_subdir(city_name)
     zones_df = pd.read_csv(os.path.join(data_dir, "zones.csv"), index_col=0)
     poi_df = pd.read_csv(os.path.join(data_dir, "poi.csv"), index_col=0)
@@ -51,9 +57,9 @@ def process_zones(city_name=None):
     for _, point in pop_gdf.iterrows():
         zones_gdf["pop"] += zones_gdf.contains(point["geometry"]).astype(int) * point["value"]
 
-    zones_gdf["households"] = zones_gdf["pop"] / avg_household_size
-    zones_gdf["vehicles"] = zones_gdf["households"] * avg_vehs_per_household
-    zones_gdf["production"] = zones_gdf["vehicles"] * avg_daily_trips_per_veh
+    zones_gdf["households"] = zones_gdf["pop"] / avg_hh_size
+    zones_gdf["vehicles"] = zones_gdf["households"] * avg_vehs_per_hh
+    zones_gdf["production"] = zones_gdf["vehicles"] * avg_trips_per_veh
     zones_gdf["production"] = zones_gdf["production"] / 16  # 16 hours = 24 full hours - 8 hours in the night
 
     logger.info("Total number of vehicles %s", zones_gdf["vehicles"].sum())

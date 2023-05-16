@@ -10,29 +10,19 @@ from shapely import Point
 
 from city_road_network.config import (
     CACHE_DIR,
+    DATA_DIR,
+    HTML_DIR,
+    PLOTS_DIR,
     amenity_rates,
     default_city_name,
     floor_area_multipliers,
     landuse_rates,
     shop_rates,
     speed_map,
-    tags_to_ignore_nodes,
-    tags_to_ignore_ways,
-    tags_to_keep_ways,
     whitelist_node_attrs,
     whitelist_relation_attrs,
     whitelist_way_attrs,
 )
-
-# identified by looking at image
-# Represents indexes in GHS POP combined array
-spb_coords = {
-    "left": 9400,
-    "right": 10500,
-    "top": 1000,
-    "bottom": 1600,
-}
-
 
 mollweide = osr.SpatialReference()
 mollweide.SetFromUserInput("ESRI:54009")
@@ -93,38 +83,38 @@ def get_csv_head(items):
     return head
 
 
-def get_html_subdir(city_name=None):
+def get_subdir(dir_name, city_name=None):
     if city_name is None:
         logger.warning("City name is not provided. Using default name '%s'", default_city_name)
         city_name = default_city_name
-    html_dir = os.path.join("..", "htmls", city_name)
-    Path(html_dir).mkdir(parents=True, exist_ok=True)
-    return html_dir
+    dir = os.path.join(dir_name, city_name)
+    Path(dir).mkdir(parents=True, exist_ok=True)
+    return dir
+
+
+def get_html_subdir(city_name=None):
+    return get_subdir(HTML_DIR, city_name)
 
 
 def get_data_subdir(city_name=None):
-    if city_name is None:
-        logger.warning("City name is not provided. Using default name '%s'", default_city_name)
-        city_name = default_city_name
-    html_dir = os.path.join("..", "data", city_name)
-    Path(html_dir).mkdir(parents=True, exist_ok=True)
-    return html_dir
+    return get_subdir(DATA_DIR, city_name)
+
+
+def get_sumo_subdir(city_name=None):
+    data_dir = get_data_subdir(city_name)
+    dir = os.path.join(data_dir, "sumo_files")
+    Path(dir).mkdir(parents=True, exist_ok=True)
+    return dir
+
+
+def get_plots_subdir(city_name=None):
+    return get_subdir(PLOTS_DIR, city_name)
 
 
 def get_cache_subdir():
-    cache_dir = os.path.join("..", CACHE_DIR)
+    cache_dir = os.path.join(CACHE_DIR)
     Path(cache_dir).mkdir(parents=True, exist_ok=True)
     return cache_dir
-
-
-class MockRelationship:
-    def __init__(self, start_node, end_node, properties):
-        self.start_node = start_node
-        self.end_node = end_node
-        self.properties = properties
-
-    def get(self, key):
-        return self.properties[key]
 
 
 def get_first_coord(geometry):
@@ -138,15 +128,16 @@ def get_first_coord(geometry):
     return Point(first_coord)
 
 
-def clean_string(value):
-    if not isinstance(value, str):
-        return value
-    return re.sub("[^0-9a-zA-Zа-яА-я]+", "_", value)
+def parse_mph_speed(value: str) -> float:
+    value_num = int(value.replace("mph", "").strip())
+    return value_num * 1.60934
 
 
 def get_max_speed(possible_speed):
-    if possible_speed == "signals":
+    if possible_speed in ("signals", "walk"):
         return None
+    if "mph" in possible_speed:
+        return parse_mph_speed(possible_speed)
     try:
         return int(possible_speed)
     except (ValueError, TypeError):
@@ -154,25 +145,6 @@ def get_max_speed(possible_speed):
             logger.warning("Found unknown speed %s", possible_speed)
             return None
         return speed_map[possible_speed]
-
-
-def check_tags(tags, config):
-    for key, values in config.items():
-        tag = tags.get(key)
-        if (tag and not values) or (tag in values):
-            return False
-    return True
-
-
-def check_way_tags(tags):
-    return check_tags(tags, tags_to_ignore_ways) or not check_tags(tags, tags_to_keep_ways)
-
-
-def check_node_tags(tags):
-    # keep destination and destination:ref!
-    if not tags[":LABEL"]:
-        return False
-    return check_tags(tags, tags_to_ignore_nodes)
 
 
 def get_attrs_from_tags(tags):
@@ -191,76 +163,7 @@ def get_filtered_relation_attrs(attrs):
     return {key: value for key, value in attrs.items() if key in whitelist_relation_attrs}
 
 
-def is_road(highway):
-    # NOT USED
-    words = (
-        "motorway",
-        "trunc",
-        "primary",
-        "secondary",
-        "tertiary_link",
-        "unclassified",
-        "residential",
-        "service",
-        "living_street",
-        "track",
-        "path",
-        "road",
-    )
-    # {'', 'unclassified', 'tertiary', 'footway', 'steps', 'secondary', 'pedestrian', 'corridor', 'secondary_link', 'service', 'path', 'primary', 'tertiary_link', 'residential', 'primary_link', 'construction'}
-    return any(word in highway for word in words)
-
-
-def is_road1(highway):
-    exclude_words = ("footway", "steps", "pedestrian", "construction", "corridor", "service", "path", "proposed")
-    return not any(word in highway for word in exclude_words)
-
-
 def get_distance(u, v):  # km
     p1 = float(u.get("lat")), float(u.get("lon"))
     p2 = float(v.get("lat")), float(v.get("lon"))
     return distance.distance(p1, p2).kilometers
-
-
-def get_is_link(highway: list):
-    for h in highway:
-        if h.endswith("_link") or h == "unclassified":
-            return True
-    return False
-
-
-def split_rels(rels, start_node, checked_nodes=None, ignore_links=False):
-    if checked_nodes is None:
-        checked_nodes = set()
-    filtered_rels = [rel for rel in rels if rel.start_node.id == start_node.id]  # start relations
-    splitted = []
-    for rel in filtered_rels:
-        path = [rel]
-        checked_nodes.add(rel.start_node)
-        while True:
-            next_rel = [r for r in rels if r.start_node == path[-1].end_node and r.start_node not in checked_nodes]
-            if ignore_links:
-                next_rel_raw = [
-                    r for r in rels if r.start_node == path[-1].end_node and r.start_node not in checked_nodes
-                ]
-                next_rel = []
-                for raw in next_rel_raw:
-                    goes_to_same_road = not (raw.end_node.labels - raw.start_node.labels)
-                    is_link = get_is_link(raw["highway"])
-                    if is_link and goes_to_same_road:
-                        print("Ignoring link in split")
-                        continue
-                    next_rel.append(raw)
-                if not next_rel:
-                    next_rel = next_rel_raw
-            checked_nodes.add(path[-1].end_node)
-            if len(next_rel) > 1:
-                for r in next_rel:
-                    splitted.extend(split_rels(rels, r.start_node, checked_nodes))
-            elif next_rel:
-                path.append(next_rel[0])
-            if not next_rel:
-                break
-        if len(path) > 1:
-            splitted.append(path)
-    return splitted
