@@ -106,7 +106,7 @@ def draw_graph(graph, node_popup_keys=None, way_popup_keys=None, map=None, save=
         location = node_data["lat"], node_data["lon"]
         map = create_map(location)
     if node_popup_keys is None:
-        node_popup_keys = ["id", "highway", "zones"]
+        node_popup_keys = ["id", "highway", "zone"]
     if way_popup_keys is None:
         way_popup_keys = [
             "start_node",

@@ -10,7 +10,11 @@ from city_road_network.config import (
     default_avg_vehs_per_household,
     default_crs,
 )
-from city_road_network.utils.utils import calc_poi_attraction, get_data_subdir, get_logger
+from city_road_network.utils.utils import (
+    calc_poi_attraction,
+    get_data_subdir,
+    get_logger,
+)
 from city_road_network.writers.csv import save_dataframe
 
 logger = get_logger(__name__)
@@ -37,12 +41,12 @@ def process_zones(city_name=None, avg_hh_size=None, avg_vehs_per_hh=None, avg_tr
     pop_gdf = gpd.GeoDataFrame(pop_df, crs=default_crs)
     nodes_gdf = gpd.GeoDataFrame(nodes_df, crs=default_crs)
 
-    nodes_gdf["zones"] = ""
+    nodes_gdf["zone"] = None
+    poi_gdf["zone"] = None
 
     for idx, zone in zones_gdf.iterrows():
-        nodes_gdf.loc[nodes_gdf.within(zone["geometry"]) | nodes_gdf.touches(zone["geometry"]), "zones"] += f"{idx},"
-
-    nodes_gdf["zones"] = nodes_gdf["zones"].str.rstrip(",")
+        nodes_gdf.loc[nodes_gdf.within(zone["geometry"]) | nodes_gdf.touches(zone["geometry"]), "zone"] = idx
+        poi_gdf.loc[poi_gdf.within(zone["geometry"]) | poi_gdf.touches(zone["geometry"]), "zone"] = idx
 
     zones_gdf["poi_count"] = 0
     zones_gdf["poi_attraction"] = 0
@@ -74,11 +78,12 @@ def process_zones(city_name=None, avg_hh_size=None, avg_vehs_per_hh=None, avg_tr
 
     zones_gdf["centroid"] = zones_gdf.centroid
 
-    for idx, point in nodes_gdf[nodes_gdf["zones"] == ""].iterrows():
+    for idx, point in nodes_gdf[nodes_gdf["zone"].isna()].iterrows():
         closest_zone = zones_gdf.exterior.distance(point["geometry"]).idxmin()
-        nodes_gdf.loc[idx, "zones"] += str(closest_zone)
-    assert nodes_gdf[nodes_gdf["zones"] == ""].empty
-    nodes_gdf["zones"] = nodes_gdf["zones"].str.split(",")
+        nodes_gdf.loc[idx, "zone"] = closest_zone
+    assert nodes_gdf[nodes_gdf["zone"].isna()].empty
+
     save_dataframe(nodes_gdf, "nodelist_upd.csv", city_name)
     save_dataframe(zones_gdf, "zones_upd.csv", city_name)
+    save_dataframe(poi_gdf, "poi_upd.csv", city_name)
     return nodes_gdf, zones_gdf

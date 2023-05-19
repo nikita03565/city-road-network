@@ -46,7 +46,7 @@ def recalculate_flow_time(graph: nx.MultiDiGraph):
 
 
 def filter_nodes(graph: nx.MultiDiGraph, zone_id: str):
-    nodes = [node for node, data in graph.nodes(data=True) if zone_id in data["zones"]]
+    nodes = [node for node, data in graph.nodes(data=True) if zone_id == str(data["zone"])]
     return nodes
 
 

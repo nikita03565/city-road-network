@@ -44,9 +44,12 @@ def _estimate_capacity(row):
 
 
 def _get_avg_value(row, key):
-    if not isinstance(row[key], list):
+    row_value = row[key]
+    if isinstance(row_value, str) and row_value.startswith("["):
+        row_value = literal_eval(row_value)
+    if not isinstance(row_value, list):
         return row[key]
-    values = [int(value) for value in row[key]]
+    values = [int(value) for value in row_value]
     return sum(values) // len(values)
 
 
@@ -62,6 +65,7 @@ def process_edges(city_name: str):
     df_edges["length (km)"] = df_edges["length"] / 1000
     df_edges["capacity (veh/h)"] = df_edges.apply(_estimate_capacity, axis=1)
     df_edges["maxspeed (km/h)"] = df_edges.apply(lambda row: _get_avg_value(row, "maxspeed"), axis=1)
+    df_edges["lanes"] = df_edges.apply(lambda row: _get_avg_value(row, "lanes"), axis=1)
 
     df_edges["flow_time (h)"] = df_edges["length (km)"] / df_edges["maxspeed (km/h)"]
     df_edges["flow_time (s)"] = df_edges["flow_time (h)"] * 3600
