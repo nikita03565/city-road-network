@@ -1,5 +1,7 @@
 from ast import literal_eval
 
+import pandas as pd
+
 from city_road_network.config import default_speed_map
 from city_road_network.utils.utils import get_max_speed
 
@@ -60,7 +62,14 @@ def get_speed(row):
     return guess_speed(row)
 
 
-def fix_missing_lanes(df_edges):
+def fix_missing_lanes(df_edges: pd.DataFrame) -> pd.DataFrame:
+    """Guesstimating lanes based on value of highway tag.
+
+    :param df_edges: Edges DataFrame with some values for `lanes` tag missing.
+    :type df_edges: pd.DataFrame
+    :return: Edges DataFrame with guesstimated values for `lanes` tag.
+    :rtype: pd.DataFrame
+    """
     empty_lanes_condition = df_edges["lanes"].isna() | (df_edges["lanes"] == "0") | (df_edges["lanes"] == 0)
     df_edges.loc[empty_lanes_condition, "lanes"] = df_edges[empty_lanes_condition].apply(guess_lanes, axis=1)
     return df_edges

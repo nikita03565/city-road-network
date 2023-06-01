@@ -20,6 +20,8 @@ logger = get_logger(__name__)
 
 
 class OSMParser:
+    """Class to parse raw large OSM file which does not fit into RAM"""
+
     SELECTED_STREETS = ()  # for debug and exploration purposes
 
     def __init__(self, f_name="map.osm", do_attrs_filtering=False, save_csv=False, specific_nodes=None):

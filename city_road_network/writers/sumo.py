@@ -2,12 +2,14 @@ import copy
 import os
 import subprocess
 from pathlib import Path
+from typing import Optional
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 from lxml import etree
 from osmnx.downloader import overpass_request
+from shapely import Polygon
 from shapely.ops import transform
 from shapely.wkt import loads
 
@@ -27,14 +29,22 @@ DUA_FILE_NAME = "od_route_file.odtrips.rou.xml"
 SUMO_CONFIG_FILE_NAME = "map.sumocfg"
 
 
-def get_raw_data(poly):
+def get_raw_data(poly: Polygon) -> dict:
+    """Makes Overpass API query and returns response with any changes/simplifications to ways and nodes.
+
+    :param poly: Polygon describing boundaries of an area of interest.
+    :type poly: Polygon
+    :return: Overpass API response.
+    :rtype: dict
+    """
     polygon_coord_str = _get_poly_coord_str(poly)
     query_str = f"[out:json][timeout:{timeout}];(way{default_osm_filter}(poly:'{polygon_coord_str}');>;);out;"
     response_json = overpass_request(data={"data": query_str})
     return response_json
 
 
-def correct_raw_ways(ways):
+def correct_raw_ways(ways: list) -> list:
+    """Guesstimating maxspeed and lanes for ways."""
     ways_corrected = copy.deepcopy(ways)
     for way in ways_corrected:
         tags = way["tags"]
@@ -47,7 +57,14 @@ def correct_raw_ways(ways):
     return ways_corrected
 
 
-def save_osm_file(elements, filename):
+def save_osm_file(elements: list, filename: str):
+    """Writes ways and nodes received from Overpass API as OSM/XML file.
+
+    :param elements: Elements from Overpass API response.
+    :type elements: list
+    :param filename: Name output OSM/XML file.
+    :type filename: str
+    """
     elements_copy = copy.deepcopy(elements)
     root = etree.Element("osm", version="0.6")
     for element in elements_copy:
@@ -69,7 +86,8 @@ def save_osm_file(elements, filename):
         f.write(etree.tostring(root, pretty_print=True, xml_declaration=True, encoding="UTF-8"))
 
 
-def prepare_sumo_net_file(poly, city_name=None):
+def prepare_sumo_net_file(poly: Polygon, city_name: Optional[str] = None):
+    """Gets raw data from Overpass API, saves and OSM/XML file and runs netconvert on this file"""
     resp = get_raw_data(poly)
     ways = [el for el in resp["elements"] if el["type"] == "way" and el["tags"].get("highway") in set(known_highways)]
     nodes = [el for el in resp["elements"] if el["type"] == "node"]
@@ -85,7 +103,8 @@ def prepare_sumo_net_file(poly, city_name=None):
     subprocess.run(args)
 
 
-def save_zones(city_name=None):
+def save_zones(city_name: Optional[str] = None):
+    """Saves zones in format that SUMO expects. Uses polyconvert tool."""
     data_dir = get_data_subdir(city_name)
     sumo_dir = get_sumo_subdir(city_name)
     zones_df = pd.read_csv(os.path.join(data_dir, "zones_upd.csv"), index_col=0)
@@ -120,7 +139,8 @@ def save_zones(city_name=None):
         f.write(etree.tostring(tree, pretty_print=True, xml_declaration=True, encoding="UTF-8"))
 
 
-def save_od_matrix(city_name=None, divider=None):
+def save_od_matrix(city_name: Optional[str] = None, divider: Optional[float] = None):
+    """Saves OD-matrix in format that SUMO expects"""
     od_head = """$O;D2
 * From-Time\tTo-Time
 0.00\t1.00
@@ -140,7 +160,8 @@ def save_od_matrix(city_name=None, divider=None):
                 f.write(f"\t\t{i}\t{j}\t{value}\n")
 
 
-def create_config(city_name=None, include_zones=True, include_trips=True):
+def create_config(city_name: Optional[str] = None, include_zones=True, include_trips=True):
+    """Creates SUMO config XML file. Links previously created files like net file, OD-matrix file, zones file into one 'project'."""
     sumo_dir = get_sumo_subdir(city_name)
     netfile = os.path.join(sumo_dir, NET_FILE_NAME)
     tazfile = os.path.join(sumo_dir, DISTRICTS_FILE_NAME)
@@ -168,7 +189,8 @@ def create_config(city_name=None, include_zones=True, include_trips=True):
         f.write(etree.tostring(element, pretty_print=True, xml_declaration=True, encoding="UTF-8"))
 
 
-def distribute_edges(city_name=None, sumo_home=None):
+def distribute_edges(city_name: Optional[str] = None, sumo_home=None):
+    """Disctibutes edges to zones via edgesInDistricts.py tool that is shipped with SUMO."""
     if sumo_home is None:
         sumo_home = os.path.join(os.sep, "usr", "share", "sumo")
     sumo_dir = get_sumo_subdir(city_name)
@@ -181,7 +203,8 @@ def distribute_edges(city_name=None, sumo_home=None):
     subprocess.run(args)
 
 
-def generate_trips(city_name=None):
+def generate_trips(city_name: Optional[str] = None):
+    """Generates trips by od2trips tool for SUMO."""
     sumo_dir = get_sumo_subdir(city_name)
 
     netfile = os.path.abspath(os.path.join(sumo_dir, NET_FILE_NAME))
@@ -198,7 +221,8 @@ def generate_trips(city_name=None):
     subprocess.run(dua_args)
 
 
-def run_sumo(city_name=None, gui=True):
+def run_sumo(city_name: Optional[str] = None, gui=True):
+    """Calls `sumo -c configfile` command"""
     sumo_dir = get_sumo_subdir(city_name)
 
     configfile = os.path.join(sumo_dir, SUMO_CONFIG_FILE_NAME)
@@ -208,7 +232,10 @@ def run_sumo(city_name=None, gui=True):
     subprocess.run(args)
 
 
-def prepare_all_files(boundaries, city_name=None, sumo_home=None, divider=None):
+def prepare_all_files(
+    boundaries: Polygon, city_name: Optional[str] = None, sumo_home=None, divider: Optional[float] = None
+):
+    """Wrapper function to prepare SUMO network file, load OD-matrix, generate trips and save config for SUMO 'project'."""
     prepare_sumo_net_file(boundaries, city_name)
     save_zones(city_name)
     distribute_edges(city_name, sumo_home=sumo_home)

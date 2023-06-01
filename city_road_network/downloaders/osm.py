@@ -32,11 +32,25 @@ class OSMData(NamedTuple):
 
 
 def _get_poly_coord_str(poly: Polygon) -> str:
+    """Transforms shapely Polygon to coordinate string that Overpass API accepts
+
+    :param poly: Polygon describing boundaries of an area of interest.
+    :type poly: Polygon
+    :return: Coordinate string ready to be used in Overpass API query.
+    :rtype: str
+    """
     strings = [" ".join(map(str, reversed(c))) for c in poly.exterior.coords]
     return " ".join(strings)
 
 
 def _create_poly_from_response(members: dict) -> Polygon:
+    """Creates shapely Polygon from Overpass API's response
+
+    :param members: The main part of a response containing ways and nodes.
+    :type members: dict
+    :return: Polygon built from response.
+    :rtype: Polygon
+    """
     G = nx.Graph(crs=default_crs)
     for member in members:
         if member["type"] != "way":
@@ -69,6 +83,13 @@ def _create_poly_from_response(members: dict) -> Polygon:
 
 
 def get_relation_poly(relation_id: int | str) -> Polygon:
+    """Gets relation members (nodes and ways) from Overpass API for a given relation id, transforms result to shapely Polygon.
+
+    :param relation_id: id for relation in OpenStreetMap.
+    :type relation_id: int | str
+    :return: Relation's representation in shapely Polygon.
+    :rtype: Polygon
+    """
     payload = {"data": f"[out:json][timeout:{timeout}];rel({relation_id});out geom;"}
     response = downloader.overpass_request(data=payload)
     poly = _create_poly_from_response(response["elements"][0]["members"])
@@ -76,6 +97,15 @@ def get_relation_poly(relation_id: int | str) -> Polygon:
 
 
 def get_admin_boundaries(poly: Polygon | MultiPolygon, admin_level: int | str = 8) -> gpd.GeoDataFrame:
+    """Gets administrative boundaries inside of an area defined by `poly` with admin level == `admin_level`
+
+    :param poly: Boundaries of an area of interest.
+    :type poly: Polygon | MultiPolygon
+    :param admin_level: Admin level as per OpenStreetMap docs, defaults to 8
+    :type admin_level: int | str, optional
+    :return: GeoDataFrame containing administrative boundaries relations with geometry.
+    :rtype: gpd.GeoDataFrame
+    """
     poly_str_list = []
     if isinstance(poly, MultiPolygon):
         for poly_part in poly.geoms:
@@ -110,6 +140,13 @@ def _get_tags(tag_dict: dict) -> list:
 
 
 def get_poi(poly: Polygon) -> gpd.GeoDataFrame:
+    """Gets Point of Interest according to values of tags 'amenity', 'shop', 'landuse' defined in config.py.
+
+    :param poly: Boundaries of an area of interest.
+    :type poly: Polygon
+    :return: GeoDataFrame containing points of interest with geometry.
+    :rtype: gpd.GeoDataFrame
+    """
     payload = {
         "amenity": _get_tags(amenity_rates),
         "shop": _get_tags(shop_rates),
@@ -137,8 +174,17 @@ def get_graph(poly: Polygon, simplify: bool = True) -> nx.MultiDiGraph:
     return graph
 
 
-def get_osm_data(poly: Polygon, admin_level: int | str = 8) -> OSMData:
-    graph = get_graph(poly)
+def get_osm_data(poly: Polygon, admin_level: int | str = 8, simplify: bool = True) -> OSMData:
+    """Wrapper function to get all OpenStreetMap data.
+
+    :param poly: Boundaries of an area of interest.
+    :type poly: Polygon
+    :param admin_level: Admin level as per OpenStreetMap docs, defaults to 8
+    :type admin_level: int | str, optional
+    :return: Named Tuple containg graph, points of interest and admininstative boundaries data.
+    :rtype: OSMData
+    """
+    graph = get_graph(poly, simplify=simplify)
     poi = get_poi(poly)
     zones = get_admin_boundaries(poly, admin_level=admin_level)
     return OSMData(graph, poi, zones)

@@ -1,7 +1,9 @@
 import os
 import zipfile
 from pathlib import Path
+from typing import Set
 
+import numpy as np
 import requests
 from osgeo import gdal, ogr
 from shapely import Point
@@ -22,6 +24,7 @@ def _get_file_by_extension(directory, extension):
 
 
 def download_shapefile():
+    """Downloads shapefile describing GHSL tiles and extracts archive."""
     response = requests.get(ghsl_shape_url)
     response.raise_for_status()
     with open(shapefile_zip_path, "wb") as f:
@@ -32,7 +35,12 @@ def download_shapefile():
     logger.info("Extracted shapefile to %s", os.path.abspath(shapefile_dir_path))
 
 
-def get_shapefile():
+def get_shapefile() -> ogr.DataSource:
+    """Downloads shapefile or reads from cache.
+
+    :return: Shapefile read by ogr.
+    :rtype: ogr.DataSource
+    """
     if not Path(shapefile_zip_path).is_file():
         logger.info("Shapefile was not found. Downloading...")
         download_shapefile()
@@ -42,7 +50,20 @@ def get_shapefile():
     return shapefile
 
 
-def get_tile_ids(top, left, bottom, right):
+def get_tile_ids(top: float, left: float, bottom: float, right: float) -> Set[int]:
+    """Identifies GHSL tiles ids from given corner coordinates of an area of interest.
+
+    :param top: top coordinate of a bounding box of an area of interest.
+    :type top: float
+    :param left: left coordinate of a bounding box of an area of interest.
+    :type left: float
+    :param bottom: bottom coordinate of a bounding box of an area of interest.
+    :type bottom: float
+    :param right: right coordinate of a bounding box of an area of interest.
+    :type right: float
+    :return: Ids of tiles where coordinates are.
+    :rtype: Set[int]
+    """
     points = [Point(left, top), Point(right, top), Point(left, bottom), Point(right, bottom)]
     shapefile = get_shapefile()
 
@@ -58,7 +79,12 @@ def get_tile_ids(top, left, bottom, right):
     return tile_ids
 
 
-def download_tile(tile_id):
+def download_tile(tile_id: int):
+    """Downloads data for a given tile and extracts archive.
+
+    :param tile_id: Id of tile as per GHSL shapefile.
+    :type tile_id: int
+    """
     url = ghsl_tile_url_template.format(tile_id=tile_id)
     logger.info("Downloading tile archive from %s", url)
     response = requests.get(url)
@@ -75,7 +101,14 @@ def download_tile(tile_id):
     logger.info("Extracted tile to %s", os.path.abspath(out_directory))
 
 
-def get_tile(tile_id):
+def get_tile(tile_id: int) -> np.array:
+    """Downloads tile or reads from cache.
+
+    :param tile_id: Id of tile as per GHSL shapefile.
+    :type tile_id: int
+    :return: Tiff file read as numpy array.
+    :rtype: np.array
+    """
     if not Path(os.path.join(cache_dir, f"{tile_id}.zip")).is_file():
         logger.info("Tile %s was not found. Downloading...", tile_id)
         download_tile(tile_id)

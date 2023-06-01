@@ -2,11 +2,13 @@ import colorsys
 import json
 import os
 from ast import literal_eval
-from typing import Optional
+from typing import List, Optional
 
 import folium
 import geopandas as gpd
+import networkx as nx
 import numpy as np
+import pandas as pd
 from pyproj import Geod
 from shapely import MultiPolygon, Polygon
 
@@ -18,6 +20,7 @@ _geodesic = Geod(ellps="WGS84")
 
 
 def _create_arrow(start_node, end_node, color, popup, radius=4, opacity=0.5):
+    """Creates arrow to indicate edge direction"""
     rot = _geodesic.inv(start_node["lon"], start_node["lat"], end_node["lon"], end_node["lat"])[0] - 90
     diff = [(-start_node["lat"] + end_node["lat"]), (-start_node["lon"] + end_node["lon"])]
     offset_rate = 0.4
@@ -38,6 +41,7 @@ def _create_arrow(start_node, end_node, color, popup, radius=4, opacity=0.5):
 
 
 def _build_gradient(n: int = 1000):
+    """Creates yellow to red gradient"""
     hsv = [(h, 1, 1) for h in np.linspace(0.29, 0.04, n)]
     rgb = [colorsys.hsv_to_rgb(*tup) for tup in hsv]
     defloat = lambda x: tuple((int(255 * i) for i in x))
@@ -61,7 +65,16 @@ def create_map(location: tuple[float, float], zoom_start: Optional[int] = 10):
     return map
 
 
-def save_map(map, filename=None, city_name=None):
+def save_map(map: folium.Map, filename: Optional[str] = None, city_name: Optional[str] = None):
+    """Saves map to subdirectory `city_name` with name `filename`
+
+    :param map: Map object
+    :type map: folium.Map
+    :param filename: Name of output file
+    :type filename: Optional[str], optional
+    :param city_name: Name of subdirectory to save map to
+    :type city_name: Optional[str], optional
+    """
     if not filename:
         logger.warning("File name for map is not provided")
         filename = "map.html"
@@ -71,7 +84,7 @@ def save_map(map, filename=None, city_name=None):
     logger.info("Saved file %s", os.path.abspath(full_name))
 
 
-def _get_graph_legend_html():
+def _get_graph_legend_html() -> str:
     item_txt = """<br> &nbsp; {item} &nbsp; <i class="fa fa-minus fa-4" style="color:{col}"></i>"""
 
     item_txt_list = [item_txt.format(item=highway, col=color) for highway, color in highway_color_mapping.items()]
@@ -100,7 +113,16 @@ def _get_graph_legend_html():
     return legend_html
 
 
-def draw_graph(graph, node_popup_keys=None, way_popup_keys=None, map=None, save=False, filename=None, city_name=None):
+def draw_graph(
+    graph: nx.DiGraph,
+    node_popup_keys: Optional[List[str]] = None,
+    way_popup_keys: Optional[List[str]] = None,
+    map: Optional[folium.Map] = None,
+    save: bool = False,
+    filename: Optional[str] = None,
+    city_name: Optional[str] = None,
+):
+    """Draws graph on map"""
     if map is None:
         node_data = next(iter(graph.nodes(data=True)))[1]
         location = node_data["lat"], node_data["lon"]
@@ -163,7 +185,8 @@ def draw_graph(graph, node_popup_keys=None, way_popup_keys=None, map=None, save=
     return map
 
 
-def draw_boundaries(poly: Polygon | MultiPolygon, map=None):
+def draw_boundaries(poly: Polygon | MultiPolygon, map: Optional[folium.Map] = None):
+    """Draws boundaries of an area of interest"""
     if isinstance(poly, MultiPolygon):
         location_point = poly.geoms[0].centroid
     else:
@@ -175,7 +198,16 @@ def draw_boundaries(poly: Polygon | MultiPolygon, map=None):
     return map
 
 
-def draw_zones(zones_gdf, popup_keys=None, color_map=None, map=None, save=False, filename=None, city_name=None):
+def draw_zones(
+    zones_gdf: gpd.GeoDataFrame,
+    popup_keys: Optional[List[str]] = None,
+    color_map: Optional[dict] = None,
+    map: Optional[folium.Map] = None,
+    save: bool = False,
+    filename: Optional[str] = None,
+    city_name: Optional[str] = None,
+):
+    "Draws zones on map"
     if map is None:
         location_point = zones_gdf["geometry"][0].centroid
         location = location_point.y, location_point.x
@@ -211,7 +243,13 @@ def draw_zones(zones_gdf, popup_keys=None, color_map=None, map=None, save=False,
     return map
 
 
-def draw_trips_map(graph, zones_gdf=None, gradient=None, by_abs_value=False):
+def draw_trips_map(
+    graph: nx.DiGraph,
+    zones_gdf: Optional[gpd.GeoDataFrame] = None,
+    gradient: Optional[List[float]] = None,
+    by_abs_value: bool = False,
+):
+    """Draws graph on map with edges color being gradient from green (low load) to red (high load)."""
     if gradient is None:
         gradient = _build_gradient()
     node_data = next(iter(graph.nodes(data=True)))[1]
@@ -248,12 +286,15 @@ def draw_trips_map(graph, zones_gdf=None, gradient=None, by_abs_value=False):
     return map
 
 
-def _get_opacity(value, min_opacity):
+def _get_opacity(value: float, min_opacity: float):
     opacity = max(value / 1000, min_opacity)
     return opacity
 
 
-def draw_trip_distribution(zones_gdf, trip_mat, map=None, min_opacity=0.01):
+def draw_trip_distribution(
+    zones_gdf: gpd.GeoDataFrame, trip_mat: np.array, map: Optional[folium.Map] = None, min_opacity: float = 0.01
+):
+    """Draws OD-matrix on map"""
     if map is None:
         map = draw_zones(zones_gdf)
     n = trip_mat.shape[0]
@@ -286,14 +327,21 @@ def draw_trip_distribution(zones_gdf, trip_mat, map=None, min_opacity=0.01):
     return map
 
 
-def _get_pop_color(value, vmax=600):
+def _get_pop_color(value: float, vmax: int = 600):
     ratio = min(value / vmax, 1)
     b_g = int(255 * (1 - ratio))
     b_g = min(b_g, 200)
     return f"rgb(255,{b_g},{b_g})"
 
 
-def draw_population(pop_df, map=None, save=False, filename=None, city_name=None):
+def draw_population(
+    pop_df: pd.DataFrame,
+    map: Optional[folium.Map] = None,
+    save: bool = False,
+    filename: Optional[str] = None,
+    city_name: Optional[str] = None,
+):
+    """Draws population distribution on map"""
     point = pop_df["geometry"][0]
     location = point.y, point.x
     if map is None:

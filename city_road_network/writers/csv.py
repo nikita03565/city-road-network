@@ -14,6 +14,7 @@ logger = get_logger(__name__)
 
 
 def save_dataframe(df: pd.DataFrame | gpd.GeoDataFrame, filename: str, city_name: str | None = None):
+    """Saves DataFrame to subdirecrory with name `city_name` and name `filename`"""
     dir_name = get_data_subdir(city_name)
     full_name = os.path.join(dir_name, filename)
     df.to_csv(full_name)
@@ -21,6 +22,7 @@ def save_dataframe(df: pd.DataFrame | gpd.GeoDataFrame, filename: str, city_name
 
 
 def save_graph(graph: nx.MultiDiGraph, city_name: str | None = None):
+    """Saves Graph to csv files 'nodelist.csv' and 'edgelist.csv' in `city_name` subdirectory."""
     graph = copy.deepcopy(graph)
     edges_data_list = []
 
@@ -40,6 +42,7 @@ def save_graph(graph: nx.MultiDiGraph, city_name: str | None = None):
 
 
 def save_osm_data(data: OSMData, city_name: str | None = None):
+    """Wrapper function to save all OSM data"""
     save_graph(data.graph, city_name=city_name)
     save_dataframe(data.poi, "poi.csv", city_name=city_name)
     save_dataframe(data.zones, "zones.csv", city_name=city_name)

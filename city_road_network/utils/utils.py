@@ -35,7 +35,8 @@ wgs_to_mollweide = osr.CoordinateTransformation(wgs, mollweide)
 mollweide_to_wgs = osr.CoordinateTransformation(mollweide, wgs)
 
 
-def convert_coordinates(x, y, *, to_wgs=True):
+def convert_coordinates(x: float, y: float, *, to_wgs=True):
+    """Converts coordinates between WGS-84 and Mollweide"""
     if to_wgs:
         transform = mollweide_to_wgs
     else:

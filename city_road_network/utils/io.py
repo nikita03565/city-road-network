@@ -7,7 +7,16 @@ START_NODE = "start_node"
 END_NODE = "end_node"
 
 
-def read_graph(nodelist_filename, edgelist_filename):
+def read_graph(nodelist_filename: str, edgelist_filename: str) -> nx.DiGraph:
+    """Reads graph from nodelist and edgelist files.
+
+    :param nodelist_filename: Name of file containing nodes.
+    :type nodelist_filename: str
+    :param edgelist_filename: Name of file containing edges.
+    :type edgelist_filename: str
+    :return: Graph built from nodes and edges.
+    :rtype: nx.DiGraph
+    """
     nodelist = pd.read_csv(nodelist_filename, index_col=0)
     edgelist = pd.read_csv(
         edgelist_filename, index_col=0, dtype={"length (m)": float, "flow_time (s)": float, "maxspeed (km/h)": float}

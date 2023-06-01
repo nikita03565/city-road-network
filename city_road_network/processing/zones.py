@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 
 import geopandas as gpd
 import pandas as pd
@@ -20,7 +21,13 @@ from city_road_network.writers.csv import save_dataframe
 logger = get_logger(__name__)
 
 
-def process_zones(city_name=None, avg_hh_size=None, avg_vehs_per_hh=None, avg_trips_per_veh=None):
+def process_zones(
+    city_name: Optional[str] = None,
+    avg_hh_size: Optional[float] = None,
+    avg_vehs_per_hh: Optional[float] = None,
+    avg_trips_per_veh: Optional[float] = None,
+):
+    """Distributes graph nodes, points of interest and population to zones. Estimates attraction and production for zones."""
     if avg_hh_size is None:
         avg_hh_size = default_avg_household_size
     if avg_vehs_per_hh is None:
@@ -64,7 +71,7 @@ def process_zones(city_name=None, avg_hh_size=None, avg_vehs_per_hh=None, avg_tr
     zones_gdf["households"] = zones_gdf["pop"] / avg_hh_size
     zones_gdf["vehicles"] = zones_gdf["households"] * avg_vehs_per_hh
     zones_gdf["production"] = zones_gdf["vehicles"] * avg_trips_per_veh
-    zones_gdf["production"] = zones_gdf["production"] / 16  # 16 hours = 24 full hours - 8 hours in the night
+    zones_gdf["production"] = zones_gdf["production"] / 24
 
     logger.info("Total number of vehicles %s", zones_gdf["vehicles"].sum())
     logger.info("Total production before %s", zones_gdf["production"].sum())

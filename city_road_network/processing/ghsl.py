@@ -1,17 +1,25 @@
 import re
 from math import ceil, floor
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 from natsort import natsorted
-from shapely import Point
+from shapely import Point, Polygon
 
 from city_road_network.downloaders.ghsl import get_tile, get_tile_ids
 from city_road_network.utils.utils import convert_coordinates
 from city_road_network.writers.csv import save_dataframe
 
 
-def parse_tile_id(tile_id):
+def parse_tile_id(tile_id: str) -> Tuple[int, int]:
+    """Extracts row and column ids from string like R23_C1
+
+    :param tile_id: String representing id for GHLS tile.
+    :type tile_id: str
+    :return: Row and Column ids.
+    :rtype: Tuple[int, int]
+    """
     reg = r"R(?P<row>\d+)_C(?P<col>\d+)"
     match = re.match(reg, tile_id)
     row = int(match.group("row"))
@@ -19,7 +27,13 @@ def parse_tile_id(tile_id):
     return row, col
 
 
-def get_image_coordinates(bbox):
+def get_image_coordinates(bbox) -> Tuple[float, float, float, float]:
+    """Converts WGS-84 coordinates of bounding box of an area of interest to Mollweide coordinates.
+
+    :param bbox: Bounding box (polygon.bounds) of an area of interest.
+    :return: Coordinates in Mollweide CRS.
+    :rtype: Tuple[float, float, float, float]
+    """
     bbox_points = [(bbox[1], bbox[0]), (bbox[3], bbox[0]), (bbox[3], bbox[2]), (bbox[1], bbox[2])]
     converted_points = []
     for p in bbox_points:
@@ -38,7 +52,14 @@ def get_image_coordinates(bbox):
     return top, left, bottom, right
 
 
-def combine_tiles(tile_ids_sorted):
+def combine_tiles(tile_ids_sorted: List[str]) -> np.array:
+    """Combines several tiles into one.
+
+    :param tile_ids_sorted: Ids of tile as per GHSL shapefile.
+    :type tile_ids_sorted: List[str]
+    :return: Combined tiles as one np.array.
+    :rtype: np.array
+    """
     if len(tile_ids_sorted) == 1:
         return get_tile(tile_ids_sorted[0])
     if len(tile_ids_sorted) != 2:
@@ -60,7 +81,15 @@ def combine_tiles(tile_ids_sorted):
     raise RuntimeError(f"Unexpected case with tiles {tile_ids_sorted}")
 
 
-def process_population(poly, city_name=None):
+def process_population(poly: Polygon, city_name: Optional[str] = None) -> pd.DataFrame:
+    """Reads tiles, joins them and returns only part that is inside of area's of interest bounding box.
+
+    :param poly: Shapely Polygon describing an area of interest
+    :type poly: Polygon
+    :param city_name: name of subfolder where save data to, defaults to None
+    :type city_name: Optional[str], optional
+    :rtype: pd.DataFrame
+    """
     bbox = poly.bounds
     top, left, bottom, right = get_image_coordinates(bbox)
     tile_ids = get_tile_ids(top, left, bottom, right)

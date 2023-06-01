@@ -21,6 +21,7 @@ russtat_path = os.path.join(cache_dir, "russtat.xlsx")
 
 
 def download_russtat_data():
+    """Downloads XLSX file describing average household size in Russia"""
     response = requests.get(rus_pop_url)
     response.raise_for_status()
     with open(russtat_path, "wb") as f:
@@ -28,6 +29,7 @@ def download_russtat_data():
 
 
 def download_nhts_data():
+    """Downloads NHTS data and extracts archive."""
     if not Path(nhts_zip_path).is_file():
         response = requests.get(nhts_url)
         response.raise_for_status()
@@ -40,7 +42,14 @@ def download_nhts_data():
     logger.info("Extracted nhts to %s. Directory content: %s", os.path.abspath(nhts_path), os.listdir(nhts_path))
 
 
-def get_nhts_dataset(name: Literal["vehpub.csv", "perpub.csv", "hhpub.csv", "trippub.csv"]):
+def get_nhts_dataset(name: Literal["vehpub.csv", "perpub.csv", "hhpub.csv", "trippub.csv"]) -> pd.DataFrame:
+    """Reads one of files from NHTS. Downloads data if not present in cache.
+
+    :param name: Name of dataset.
+    :type name: Literal[&quot;vehpub.csv&quot;, &quot;perpub.csv&quot;, &quot;hhpub.csv&quot;, &quot;trippub.csv&quot;]
+    :return: NHTS dataset as Pandas DataFrame.
+    :rtype: pd.DataFrame
+    """
     csv_path = os.path.join(nhts_path, name)
     if not Path(csv_path).is_file():
         download_nhts_data()
@@ -48,7 +57,14 @@ def get_nhts_dataset(name: Literal["vehpub.csv", "perpub.csv", "hhpub.csv", "tri
     return df
 
 
-def transform_russtat_data(df):
+def transform_russtat_data(df: pd.DataFrame) -> pd.DataFrame:
+    """Transforms XLSX file describing average household size in Russia to appropriate form.
+
+    :param df: DataFrame containing results of `pd.read_excel`.
+    :type df: pd.DataFrame
+    :return: Transformed DataFrame.
+    :rtype: pd.DataFrame
+    """
     records = df.to_dict("records")
     city_line = "Городские населенные пункты"
     village_line = "Сельские населенные пункты"
@@ -69,7 +85,12 @@ def transform_russtat_data(df):
     return new_df
 
 
-def get_russtat_data():
+def get_russtat_data() -> pd.DataFrame:
+    """Downloads XLSX file describing average household size in Russia or reads from cache and transforms to appropriate form.
+
+    :return: DataFrame describing average household size in Russia.
+    :rtype: pd.DataFrame
+    """
     if not Path(russtat_path).is_file():
         logger.info("Russstat data was not found. Downloading...")
         download_russtat_data()
