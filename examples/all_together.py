@@ -1,16 +1,15 @@
 import os
 import pandas as pd
 from city_road_network.downloaders.osm import get_relation_poly, get_osm_data
-from city_road_network.utils.map import draw_zones
+from city_road_network.utils.map import draw_population, draw_zones, draw_graph
 from city_road_network.writers.csv import save_osm_data
 
-from city_road_network.utils.map import draw_population, draw_zones, draw_graph
+
 from city_road_network.utils.io import read_graph
 from city_road_network.utils.utils import get_data_subdir
 from city_road_network.processing.ghsl import process_population
 from city_road_network.processing.zones import process_zones
 from city_road_network.processing.graph import process_edges
-from city_road_network.downloaders.osm import get_relation_poly
 
 
 if __name__ == "__main__":

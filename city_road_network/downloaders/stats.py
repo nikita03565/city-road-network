@@ -5,9 +5,7 @@ from typing import Literal
 
 import pandas as pd
 import requests
-from osgeo import gdal, ogr
-from shapely import Point
-from shapely.geometry import shape
+
 
 from city_road_network.config import nhts_url, rus_pop_url
 from city_road_network.utils.utils import get_cache_subdir, get_logger

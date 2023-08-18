@@ -155,7 +155,6 @@ amenity_rates = {
     "cafe": 14.13,  # Fast Casual Restaurant
     "car_wash": (5.54 + 14.20 + 13.60) / 3,  # Avg of Self Service Car Wash +
     # Automated Car Wash + Car Wash and Detail Center
-    "car_wash": (5.54 + 14.20 + 13.60) / 3,
     "clinic": (3.28 + 5.18) / 2,  # Avg of General Urban and Dense Multi-Use Urban
     "college": 1.17,  # University/College
     "dentist": 3.46,  # Medical-Dental Office Building

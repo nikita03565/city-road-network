@@ -9,9 +9,9 @@ class NeoManager:
     get_node_query_template = "MATCH (n) WHERE n.id = '{node_id}' return n;"
     # fmt: off
     way_query_template = """
-        MATCH (u), (v) 
-        WHERE u.id = '{u_id}' AND v.id = '{v_id}' 
-        CREATE (u)-[r:Neighbor {attrs}]->(v) 
+        MATCH (u), (v)
+        WHERE u.id = '{u_id}' AND v.id = '{v_id}'
+        CREATE (u)-[r:Neighbor {attrs}]->(v)
     """
     # fmt: on
     log = True

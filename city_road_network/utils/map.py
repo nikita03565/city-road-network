@@ -2,7 +2,7 @@ import colorsys
 import json
 import os
 from ast import literal_eval
-from typing import List, Optional
+
 
 import folium
 import geopandas as gpd
@@ -40,11 +40,14 @@ def _create_arrow(start_node, end_node, color, popup, radius=4, opacity=0.5):
     )
 
 
+def defloat(x):
+    return tuple(int(255 * i) for i in x)
+
+
 def _build_gradient(n: int = 1000):
     """Creates yellow to red gradient"""
     hsv = [(h, 1, 1) for h in np.linspace(0.29, 0.04, n)]
     rgb = [colorsys.hsv_to_rgb(*tup) for tup in hsv]
-    defloat = lambda x: tuple((int(255 * i) for i in x))
 
     # To draw gradient use this:
     # n = 100
@@ -56,7 +59,7 @@ def _build_gradient(n: int = 1000):
     return [defloat(x) for x in rgb]
 
 
-def create_map(location: tuple[float, float], zoom_start: Optional[int] = 10):
+def create_map(location: tuple[float, float], zoom_start: int | None = 10):
     map = folium.Map(
         location=location,
         tiles="OpenStreetMap",
@@ -65,7 +68,7 @@ def create_map(location: tuple[float, float], zoom_start: Optional[int] = 10):
     return map
 
 
-def save_map(map: folium.Map, filename: Optional[str] = None, city_name: Optional[str] = None):
+def save_map(map: folium.Map, filename: str | None = None, city_name: str | None = None):
     """Saves map to subdirectory `city_name` with name `filename`
 
     :param map: Map object
@@ -92,19 +95,19 @@ def _get_graph_legend_html() -> str:
 
     legend_html = """
         <div style="
-        position: fixed; 
-        bottom: 50px; left: 50px;; 
-        border:2px solid grey; z-index:9999; 
-        
+        position: fixed;
+        bottom: 50px; left: 50px;;
+        border:2px solid grey; z-index:9999;
+
         background-color:white;
         opacity: .85;
-        
+
         font-size:14px;
         font-weight: bold;
-        
+
         ">
-        &nbsp; {title} 
-        
+        &nbsp; {title}
+
         {itm_txt}
 
         </div> """.format(
@@ -115,12 +118,12 @@ def _get_graph_legend_html() -> str:
 
 def draw_graph(
     graph: nx.DiGraph,
-    node_popup_keys: Optional[List[str]] = None,
-    way_popup_keys: Optional[List[str]] = None,
-    map: Optional[folium.Map] = None,
+    node_popup_keys: list[str] | None = None,
+    way_popup_keys: list[str] | None = None,
+    map: folium.Map | None = None,
     save: bool = False,
-    filename: Optional[str] = None,
-    city_name: Optional[str] = None,
+    filename: str | None = None,
+    city_name: str | None = None,
 ):
     """Draws graph on map"""
     if map is None:
@@ -185,7 +188,7 @@ def draw_graph(
     return map
 
 
-def draw_boundaries(poly: Polygon | MultiPolygon, map: Optional[folium.Map] = None):
+def draw_boundaries(poly: Polygon | MultiPolygon, map: folium.Map | None = None):
     """Draws boundaries of an area of interest"""
     if isinstance(poly, MultiPolygon):
         location_point = poly.geoms[0].centroid
@@ -200,12 +203,12 @@ def draw_boundaries(poly: Polygon | MultiPolygon, map: Optional[folium.Map] = No
 
 def draw_zones(
     zones_gdf: gpd.GeoDataFrame,
-    popup_keys: Optional[List[str]] = None,
-    color_map: Optional[dict] = None,
-    map: Optional[folium.Map] = None,
+    popup_keys: list[str] | None = None,
+    color_map: dict | None = None,
+    map: folium.Map | None = None,
     save: bool = False,
-    filename: Optional[str] = None,
-    city_name: Optional[str] = None,
+    filename: str | None = None,
+    city_name: str | None = None,
 ):
     "Draws zones on map"
     if map is None:
@@ -245,8 +248,8 @@ def draw_zones(
 
 def draw_trips_map(
     graph: nx.DiGraph,
-    zones_gdf: Optional[gpd.GeoDataFrame] = None,
-    gradient: Optional[List[float]] = None,
+    zones_gdf: gpd.GeoDataFrame | None = None,
+    gradient: list[float] | None = None,
     by_abs_value: bool = False,
 ):
     """Draws graph on map with edges color being gradient from green (low load) to red (high load)."""
@@ -292,7 +295,7 @@ def _get_opacity(value: float, min_opacity: float):
 
 
 def draw_trip_distribution(
-    zones_gdf: gpd.GeoDataFrame, trip_mat: np.array, map: Optional[folium.Map] = None, min_opacity: float = 0.01
+    zones_gdf: gpd.GeoDataFrame, trip_mat: np.array, map: folium.Map | None = None, min_opacity: float = 0.01
 ):
     """Draws OD-matrix on map"""
     if map is None:
@@ -336,10 +339,10 @@ def _get_pop_color(value: float, vmax: int = 600):
 
 def draw_population(
     pop_df: pd.DataFrame,
-    map: Optional[folium.Map] = None,
+    map: folium.Map | None = None,
     save: bool = False,
-    filename: Optional[str] = None,
-    city_name: Optional[str] = None,
+    filename: str | None = None,
+    city_name: str | None = None,
 ):
     """Draws population distribution on map"""
     point = pop_df["geometry"][0]

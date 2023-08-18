@@ -1,7 +1,7 @@
 import os
 import zipfile
 from pathlib import Path
-from typing import Set
+
 
 import numpy as np
 import requests
@@ -50,7 +50,7 @@ def get_shapefile() -> ogr.DataSource:
     return shapefile
 
 
-def get_tile_ids(top: float, left: float, bottom: float, right: float) -> Set[int]:
+def get_tile_ids(top: float, left: float, bottom: float, right: float) -> set[int]:
     """Identifies GHSL tiles ids from given corner coordinates of an area of interest.
 
     :param top: top coordinate of a bounding box of an area of interest.
