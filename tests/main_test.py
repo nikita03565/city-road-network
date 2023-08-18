@@ -1,7 +1,7 @@
 from city_road_network.downloaders.ghsl import get_tile_ids
 from city_road_network.downloaders.osm import get_relation_poly
 from city_road_network.processing.ghsl import get_image_coordinates
-from city_road_network.utils.utils import convert_coordinates
+from city_road_network.utils.utils import convert_coordinates, get_distance
 
 
 def test_tiles():
@@ -27,3 +27,11 @@ def test_convert():
 
     wgs_x_back, wgs_y_back = convert_coordinates(moll_x, moll_y, to_wgs=True)
     assert almost_equal(wgs_x_back, wgs_x) and almost_equal(wgs_y_back, wgs_y)
+
+
+def test_distance():
+    p1 = {"lat": 60, "lon": 30}
+    p2 = {"lat": 60.1, "lon": 30.1}
+
+    d2 = get_distance(p1, p2)
+    assert almost_equal(d2, 12.456775938122396)

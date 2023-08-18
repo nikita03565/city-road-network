@@ -3,8 +3,8 @@ import os
 import sys
 from pathlib import Path
 
-from geopy import distance
-from pyproj import Transformer
+
+from pyproj import Geod, Transformer
 from shapely import Point
 
 from city_road_network.config import (
@@ -158,6 +158,8 @@ def get_filtered_relation_attrs(attrs):
 
 
 def get_distance(u, v):  # km
-    p1 = float(u.get("lat")), float(u.get("lon"))
-    p2 = float(v.get("lat")), float(v.get("lon"))
-    return distance.distance(p1, p2).kilometers
+    wgs84_geod = Geod(ellps="WGS84")
+    p1 = float(u.get("lon")), float(u.get("lat"))
+    p2 = float(v.get("lon")), float(v.get("lat"))
+    _, _, dist = wgs84_geod.inv(*p1, *p2)
+    return dist / 1000
