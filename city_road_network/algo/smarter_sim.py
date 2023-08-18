@@ -2,7 +2,6 @@ import copy
 import time
 from concurrent.futures import ProcessPoolExecutor
 
-
 from city_road_network.algo.common import (
     add_passes_count,
     build_paths,

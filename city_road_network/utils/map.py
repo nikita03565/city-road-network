@@ -3,7 +3,6 @@ import json
 import os
 from ast import literal_eval
 
-
 import folium
 import geopandas as gpd
 import networkx as nx
