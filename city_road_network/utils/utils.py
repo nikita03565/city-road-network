@@ -1,6 +1,6 @@
 import logging
 import os
-import re
+
 import sys
 from pathlib import Path
 
@@ -73,7 +73,7 @@ def calc_poi_attraction(poi):
 
 def get_csv_head(items):
     head = [""]
-    head_set = set([""])
+    head_set = {""}
 
     for item in items:
         for key in item.keys():

@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+
 
 import geopandas as gpd
 import pandas as pd
@@ -22,10 +22,10 @@ logger = get_logger(__name__)
 
 
 def process_zones(
-    city_name: Optional[str] = None,
-    avg_hh_size: Optional[float] = None,
-    avg_vehs_per_hh: Optional[float] = None,
-    avg_trips_per_veh: Optional[float] = None,
+    city_name: str | None = None,
+    avg_hh_size: float | None = None,
+    avg_vehs_per_hh: float | None = None,
+    avg_trips_per_veh: float | None = None,
 ):
     """Distributes graph nodes, points of interest and population to zones. Estimates attraction and production for zones."""
     if avg_hh_size is None:

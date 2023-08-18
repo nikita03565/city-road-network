@@ -1,6 +1,6 @@
 import re
 from math import ceil, floor
-from typing import List, Optional, Tuple
+
 
 import numpy as np
 import pandas as pd
@@ -12,7 +12,7 @@ from city_road_network.utils.utils import convert_coordinates
 from city_road_network.writers.csv import save_dataframe
 
 
-def parse_tile_id(tile_id: str) -> Tuple[int, int]:
+def parse_tile_id(tile_id: str) -> tuple[int, int]:
     """Extracts row and column ids from string like R23_C1
 
     :param tile_id: String representing id for GHLS tile.
@@ -27,7 +27,7 @@ def parse_tile_id(tile_id: str) -> Tuple[int, int]:
     return row, col
 
 
-def get_image_coordinates(bbox) -> Tuple[float, float, float, float]:
+def get_image_coordinates(bbox) -> tuple[float, float, float, float]:
     """Converts WGS-84 coordinates of bounding box of an area of interest to Mollweide coordinates.
 
     :param bbox: Bounding box (polygon.bounds) of an area of interest.
@@ -52,7 +52,7 @@ def get_image_coordinates(bbox) -> Tuple[float, float, float, float]:
     return top, left, bottom, right
 
 
-def combine_tiles(tile_ids_sorted: List[str]) -> np.array:
+def combine_tiles(tile_ids_sorted: list[str]) -> np.array:
     """Combines several tiles into one.
 
     :param tile_ids_sorted: Ids of tile as per GHSL shapefile.
@@ -81,7 +81,7 @@ def combine_tiles(tile_ids_sorted: List[str]) -> np.array:
     raise RuntimeError(f"Unexpected case with tiles {tile_ids_sorted}")
 
 
-def process_population(poly: Polygon, city_name: Optional[str] = None) -> pd.DataFrame:
+def process_population(poly: Polygon, city_name: str | None = None) -> pd.DataFrame:
     """Reads tiles, joins them and returns only part that is inside of area's of interest bounding box.
 
     :param poly: Shapely Polygon describing an area of interest

@@ -1,6 +1,6 @@
 [tool.black]
 line-length = 120
-target-version = ['py38']
+target-version = ['py311']
 extend-exclude = '''
 # A regex preceded with ^/ will apply only to files and directories
 # in the root of the project.
@@ -9,7 +9,3 @@ extend-exclude = '''
 
 [tool.isort]
 profile = "black"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"

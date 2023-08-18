@@ -1,6 +1,6 @@
 import os
 from ast import literal_eval
-from typing import Optional
+
 
 import numpy as np
 import pandas as pd
@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 def _get_base_capacity(lanes: int | str, oneway: bool) -> int:
     try:
         lanes = int(lanes)
-    except ValueError as e:
+    except ValueError:
         logger.warning("Failed to parse %s as int. Rounding.", lanes)
         lanes = round(float(lanes))
     if lanes == 1:
@@ -54,7 +54,7 @@ def _get_avg_value(row, key):
     return sum(values) // len(values)
 
 
-def process_edges(city_name: Optional[str] = None) -> pd.DataFrame:
+def process_edges(city_name: str | None = None) -> pd.DataFrame:
     """Reads DataFrame from `city_name` subdirectory, fixes missing lanes, estimates capacity, estimates flow time, renames columns.
 
     :param city_name: name of subdirectory to read data from and save to, defaults to None

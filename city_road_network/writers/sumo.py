@@ -2,7 +2,7 @@ import copy
 import os
 import subprocess
 from pathlib import Path
-from typing import Optional
+
 
 import geopandas as gpd
 import numpy as np
@@ -86,7 +86,7 @@ def save_osm_file(elements: list, filename: str):
         f.write(etree.tostring(root, pretty_print=True, xml_declaration=True, encoding="UTF-8"))
 
 
-def prepare_sumo_net_file(poly: Polygon, city_name: Optional[str] = None):
+def prepare_sumo_net_file(poly: Polygon, city_name: str | None = None):
     """Gets raw data from Overpass API, saves and OSM/XML file and runs netconvert on this file"""
     resp = get_raw_data(poly)
     ways = [el for el in resp["elements"] if el["type"] == "way" and el["tags"].get("highway") in set(known_highways)]
@@ -103,7 +103,7 @@ def prepare_sumo_net_file(poly: Polygon, city_name: Optional[str] = None):
     subprocess.run(args)
 
 
-def save_zones(city_name: Optional[str] = None):
+def save_zones(city_name: str | None = None):
     """Saves zones in format that SUMO expects. Uses polyconvert tool."""
     data_dir = get_data_subdir(city_name)
     sumo_dir = get_sumo_subdir(city_name)
@@ -139,7 +139,7 @@ def save_zones(city_name: Optional[str] = None):
         f.write(etree.tostring(tree, pretty_print=True, xml_declaration=True, encoding="UTF-8"))
 
 
-def save_od_matrix(city_name: Optional[str] = None, divider: Optional[float] = None):
+def save_od_matrix(city_name: str | None = None, divider: float | None = None):
     """Saves OD-matrix in format that SUMO expects"""
     od_head = """$O;D2
 * From-Time\tTo-Time
@@ -160,7 +160,7 @@ def save_od_matrix(city_name: Optional[str] = None, divider: Optional[float] = N
                 f.write(f"\t\t{i}\t{j}\t{value}\n")
 
 
-def create_config(city_name: Optional[str] = None, include_zones=True, include_trips=True):
+def create_config(city_name: str | None = None, include_zones=True, include_trips=True):
     """Creates SUMO config XML file. Links previously created files like net file, OD-matrix file, zones file into one 'project'."""
     sumo_dir = get_sumo_subdir(city_name)
     netfile = os.path.join(sumo_dir, NET_FILE_NAME)
@@ -189,7 +189,7 @@ def create_config(city_name: Optional[str] = None, include_zones=True, include_t
         f.write(etree.tostring(element, pretty_print=True, xml_declaration=True, encoding="UTF-8"))
 
 
-def distribute_edges(city_name: Optional[str] = None, sumo_home=None):
+def distribute_edges(city_name: str | None = None, sumo_home=None):
     """Disctibutes edges to zones via edgesInDistricts.py tool that is shipped with SUMO."""
     if sumo_home is None:
         sumo_home = os.path.join(os.sep, "usr", "share", "sumo")
@@ -203,7 +203,7 @@ def distribute_edges(city_name: Optional[str] = None, sumo_home=None):
     subprocess.run(args)
 
 
-def generate_trips(city_name: Optional[str] = None):
+def generate_trips(city_name: str | None = None):
     """Generates trips by od2trips tool for SUMO."""
     sumo_dir = get_sumo_subdir(city_name)
 
@@ -221,7 +221,7 @@ def generate_trips(city_name: Optional[str] = None):
     subprocess.run(dua_args)
 
 
-def run_sumo(city_name: Optional[str] = None, gui=True):
+def run_sumo(city_name: str | None = None, gui=True):
     """Calls `sumo -c configfile` command"""
     sumo_dir = get_sumo_subdir(city_name)
 
@@ -232,9 +232,7 @@ def run_sumo(city_name: Optional[str] = None, gui=True):
     subprocess.run(args)
 
 
-def prepare_all_files(
-    boundaries: Polygon, city_name: Optional[str] = None, sumo_home=None, divider: Optional[float] = None
-):
+def prepare_all_files(boundaries: Polygon, city_name: str | None = None, sumo_home=None, divider: float | None = None):
     """Wrapper function to prepare SUMO network file, load OD-matrix, generate trips and save config for SUMO 'project'."""
     prepare_sumo_net_file(boundaries, city_name)
     save_zones(city_name)
