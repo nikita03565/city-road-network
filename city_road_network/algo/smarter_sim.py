@@ -2,9 +2,8 @@ import copy
 import time
 from concurrent.futures import ProcessPoolExecutor
 
-import networkx as nx
 
-from city_road_network.algo.utils import (
+from city_road_network.algo.common import (
     add_passes_count,
     build_paths,
     recalculate_flow_time,
