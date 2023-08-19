@@ -3,7 +3,6 @@ import os
 import sys
 from pathlib import Path
 
-
 from pyproj import Geod, Transformer
 from shapely import Point
 

@@ -4,8 +4,8 @@ from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
+import rasterio
 import requests
-from osgeo import gdal
 from shapely import Point
 
 from city_road_network.config import ghsl_shape_url, ghsl_tile_url_template
@@ -110,7 +110,6 @@ def get_tile(tile_id: int) -> np.array:
     directory = os.path.join(cache_dir, tile_id)
     tiff_filename = _get_file_by_extension(directory, ".tif")
     full_name = os.path.join(directory, tiff_filename)
-    dataset = gdal.Open(full_name, gdal.GA_ReadOnly)
-    band = dataset.GetRasterBand(1)
-    array = band.ReadAsArray()
+    dataset = rasterio.open(full_name)
+    array = dataset.read()[0]
     return array
