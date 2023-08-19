@@ -5,16 +5,6 @@ default_avg_vehs_per_household = 0.62  # from https://rosstat.gov.ru/folder/1339
 default_city_name = "default_city"
 default_crs = "epsg:4326"
 
-
-default_access = '["access"!~"private"]'
-default_osm_filter = (
-    f'["highway"]["area"!~"yes"]{default_access}'
-    f'["highway"!~"abandoned|bridleway|bus_guideway|construction|corridor|cycleway|elevator|'
-    f"escalator|footway|path|pedestrian|planned|platform|proposed|raceway|service|no|razed|"
-    f'steps|track"]'
-    f'["motor_vehicle"!~"no"]["motorcar"!~"no"]'
-    f'["service"!~"alley|driveway|emergency_access|parking|parking_aisle|private"]'
-)
 timeout = 180
 
 CACHE_DIR = "cache"
