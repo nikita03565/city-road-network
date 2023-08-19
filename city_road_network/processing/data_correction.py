@@ -3,7 +3,9 @@ from ast import literal_eval
 import pandas as pd
 
 from city_road_network.config import default_speed_map
-from city_road_network.utils.utils import get_max_speed
+from city_road_network.utils.utils import get_logger, get_max_speed
+
+logger = get_logger(__name__)
 
 
 def guess_speed(row):
@@ -38,7 +40,8 @@ def guess_lanes(row):
         return "3"
     if ("trunk" in highway) or ("trunk_link" in highway):
         return "4"
-    raise ValueError(f"Unexpected case {row}")
+    logger.error(f"Unexpected case highway: {row['highway']}, full row: {row.to_dict()}")
+    return "1"
 
 
 def get_speed(row):

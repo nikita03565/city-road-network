@@ -3,17 +3,16 @@ import os
 import subprocess
 from pathlib import Path
 
-
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 from lxml import etree
-from osmnx.downloader import overpass_request
+from osmnx._overpass import _overpass_request as overpass_request, _get_osm_filter as get_osm_filter
 from shapely import Polygon
 from shapely.ops import transform
 from shapely.wkt import loads
 
-from city_road_network.config import default_osm_filter, known_highways, timeout
+from city_road_network.config import known_highways, timeout
 from city_road_network.downloaders.osm import _get_poly_coord_str
 from city_road_network.processing.data_correction import get_speed, guess_lanes
 from city_road_network.utils.utils import get_data_subdir, get_logger, get_sumo_subdir
@@ -38,7 +37,8 @@ def get_raw_data(poly: Polygon) -> dict:
     :rtype: dict
     """
     polygon_coord_str = _get_poly_coord_str(poly)
-    query_str = f"[out:json][timeout:{timeout}];(way{default_osm_filter}(poly:'{polygon_coord_str}');>;);out;"
+    osm_filter = get_osm_filter("drive")
+    query_str = f"[out:json][timeout:{timeout}];(way{osm_filter}(poly:'{polygon_coord_str}');>;);out;"
     response_json = overpass_request(data={"data": query_str})
     return response_json
 

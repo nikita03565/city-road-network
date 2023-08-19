@@ -2,12 +2,11 @@ import os
 import zipfile
 from pathlib import Path
 
-
+import geopandas as gpd
 import numpy as np
+import rasterio
 import requests
-from osgeo import gdal, ogr
 from shapely import Point
-from shapely.geometry import shape
 
 from city_road_network.config import ghsl_shape_url, ghsl_tile_url_template
 from city_road_network.utils.utils import get_cache_subdir, get_logger
@@ -35,22 +34,22 @@ def download_shapefile():
     logger.info("Extracted shapefile to %s", os.path.abspath(shapefile_dir_path))
 
 
-def get_shapefile() -> ogr.DataSource:
+def get_shapefile() -> gpd.GeoDataFrame:
     """Downloads shapefile or reads from cache.
 
-    :return: Shapefile read by ogr.
-    :rtype: ogr.DataSource
+    :return: Shapefile read by geopandas.
+    :rtype: gpd.GeoDataFrame
     """
     if not Path(shapefile_zip_path).is_file():
         logger.info("Shapefile was not found. Downloading...")
         download_shapefile()
 
     shp_filename = _get_file_by_extension(shapefile_dir_path, ".shp")
-    shapefile = ogr.Open(os.path.join(shapefile_dir_path, shp_filename))
-    return shapefile
+    gdf = gpd.read_file(os.path.join(shapefile_dir_path, shp_filename))
+    return gdf
 
 
-def get_tile_ids(top: float, left: float, bottom: float, right: float) -> set[int]:
+def get_tile_ids(top: float, left: float, bottom: float, right: float) -> dict[str, gpd.GeoSeries]:
     """Identifies GHSL tiles ids from given corner coordinates of an area of interest.
 
     :param top: top coordinate of a bounding box of an area of interest.
@@ -65,17 +64,13 @@ def get_tile_ids(top: float, left: float, bottom: float, right: float) -> set[in
     :rtype: Set[int]
     """
     points = [Point(left, top), Point(right, top), Point(left, bottom), Point(right, bottom)]
-    shapefile = get_shapefile()
-
-    layer = shapefile.GetLayer(0)
-    feature_count = layer.GetFeatureCount()
+    gdf = get_shapefile()
 
     tile_ids = {}
-    for i in range(feature_count):
-        feature = layer.GetFeature(i).ExportToJson(as_object=True)
-        poly = shape(feature["geometry"])
+    for _, row in gdf.iterrows():
+        poly = row["geometry"]
         if any(poly.contains(point) for point in points):
-            tile_ids[feature["properties"]["tile_id"]] = feature
+            tile_ids[row["tile_id"]] = row
     return tile_ids
 
 
@@ -115,7 +110,6 @@ def get_tile(tile_id: int) -> np.array:
     directory = os.path.join(cache_dir, tile_id)
     tiff_filename = _get_file_by_extension(directory, ".tif")
     full_name = os.path.join(directory, tiff_filename)
-    dataset = gdal.Open(full_name, gdal.GA_ReadOnly)
-    band = dataset.GetRasterBand(1)
-    array = band.ReadAsArray()
+    dataset = rasterio.open(full_name)
+    array = dataset.read()[0]
     return array

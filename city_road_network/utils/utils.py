@@ -1,11 +1,9 @@
 import logging
 import os
-
 import sys
 from pathlib import Path
 
-from geopy import distance
-from osgeo import ogr, osr
+from pyproj import Geod, Transformer
 from shapely import Point
 
 from city_road_network.config import (
@@ -24,15 +22,12 @@ from city_road_network.config import (
     whitelist_way_attrs,
 )
 
-mollweide = osr.SpatialReference()
-mollweide.SetFromUserInput("ESRI:54009")
-
-wgs = osr.SpatialReference()
-wgs.ImportFromEPSG(4326)
+mollweide = "ESRI:54009"
+wgs = "EPSG:4326"
 
 
-wgs_to_mollweide = osr.CoordinateTransformation(wgs, mollweide)
-mollweide_to_wgs = osr.CoordinateTransformation(mollweide, wgs)
+wgs_to_mollweide = Transformer.from_crs(wgs, mollweide)
+mollweide_to_wgs = Transformer.from_crs(mollweide, wgs)
 
 
 def convert_coordinates(x: float, y: float, *, to_wgs=True):
@@ -41,10 +36,7 @@ def convert_coordinates(x: float, y: float, *, to_wgs=True):
         transform = mollweide_to_wgs
     else:
         transform = wgs_to_mollweide
-    point = ogr.CreateGeometryFromWkt(f"POINT ({x} {y})")
-    point.Transform(transform)
-    wkt = point.ExportToWkt()  # 'POINT (61.2993700571118 30.9930425659682)'
-    result = tuple(float(x) for x in wkt[7:-1].split())
+    result = transform.transform(x, y)
     return result
 
 
@@ -165,6 +157,8 @@ def get_filtered_relation_attrs(attrs):
 
 
 def get_distance(u, v):  # km
-    p1 = float(u.get("lat")), float(u.get("lon"))
-    p2 = float(v.get("lat")), float(v.get("lon"))
-    return distance.distance(p1, p2).kilometers
+    wgs84_geod = Geod(ellps="WGS84")
+    p1 = float(u.get("lon")), float(u.get("lat"))
+    p2 = float(v.get("lon")), float(v.get("lat"))
+    _, _, dist = wgs84_geod.inv(*p1, *p2)
+    return dist / 1000

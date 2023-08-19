@@ -1,10 +1,12 @@
 import copy
-
 import time
 from concurrent.futures import ProcessPoolExecutor
 
-
-from city_road_network.algo.common import add_passes_count, build_paths, yeild_zone_pairs
+from city_road_network.algo.common import (
+    add_passes_count,
+    build_paths,
+    yeild_zone_pairs,
+)
 
 
 def process_cell(args):

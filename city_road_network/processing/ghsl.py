@@ -1,7 +1,6 @@
 import re
 from math import ceil, floor
 
-
 import numpy as np
 import pandas as pd
 from natsort import natsorted
@@ -98,7 +97,7 @@ def process_population(poly: Polygon, city_name: str | None = None) -> pd.DataFr
     tile = combine_tiles(tile_ids_sorted)
 
     top_left_tile = tile_ids_sorted[0]
-    top_left_tile_props = tile_ids[top_left_tile]["properties"]
+    top_left_tile_props = tile_ids[top_left_tile]
 
     pixel_size = 100
 

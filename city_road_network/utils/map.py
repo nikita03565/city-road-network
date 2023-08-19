@@ -3,7 +3,6 @@ import json
 import os
 from ast import literal_eval
 
-
 import folium
 import geopandas as gpd
 import networkx as nx
@@ -170,7 +169,7 @@ def draw_graph(
             highway = highway_raw[0]
         else:
             highway = highway_raw if not highway_raw.startswith("[") else literal_eval(highway_raw)[0]
-        color = highway_color_mapping[highway]
+        color = highway_color_mapping.get(highway, "#B2BEB5")
         map.add_child(_create_arrow(start_node, end_node, color, popup, opacity=opacity))
         map.add_child(
             folium.PolyLine(
