@@ -7,7 +7,8 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 from lxml import etree
-from osmnx._overpass import _overpass_request as overpass_request, _get_osm_filter as get_osm_filter
+from osmnx._overpass import _get_osm_filter as get_osm_filter
+from osmnx._overpass import _overpass_request as overpass_request
 from shapely import Polygon
 from shapely.ops import transform
 from shapely.wkt import loads
