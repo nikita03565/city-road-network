@@ -26,7 +26,7 @@ Base = declarative_base()
 
 
 class Node(Base):
-    __tablename__ = "nodes"
+    __tablename__ = "node"
     id = Column(Integer, primary_key=True)
     original_id = Column(String)
     name = Column(String)
@@ -34,12 +34,12 @@ class Node(Base):
     highway = Column(String)
     amenity = Column(String)
 
-    zone_id = mapped_column(ForeignKey("zones.id"), nullable=True)
+    zone_id = mapped_column(ForeignKey("zone.id"), nullable=True)
     zone: Mapped["Zone"] = relationship(foreign_keys=[zone_id])
 
 
 class Edge(Base):
-    __tablename__ = "edges"
+    __tablename__ = "edge"
     id = Column(Integer, primary_key=True)
     name = Column(String)
     osmid = Column(String)
@@ -57,8 +57,8 @@ class Edge(Base):
 
     geometry = Column(Geometry("LINESTRING", srid=SRID))
 
-    start_node_id = mapped_column(ForeignKey("nodes.id"))
-    end_node_id = mapped_column(ForeignKey("nodes.id"))
+    start_node_id = mapped_column(ForeignKey("node.id"))
+    end_node_id = mapped_column(ForeignKey("node.id"))
     start_node: Mapped["Node"] = relationship(foreign_keys=[start_node_id])
     end_node: Mapped["Node"] = relationship(foreign_keys=[end_node_id])
 
@@ -73,7 +73,7 @@ class Poi(Base):
     shop = Column(String)
     landuse = Column(String)
 
-    zone_id = mapped_column(ForeignKey("zones.id"), nullable=True)
+    zone_id = mapped_column(ForeignKey("zone.id"), nullable=True)
     zone: Mapped["Zone"] = relationship(foreign_keys=[zone_id])
 
 
@@ -85,7 +85,7 @@ class Population(Base):
 
 
 class Zone(Base):
-    __tablename__ = "zones"
+    __tablename__ = "zone"
     id = Column(Integer, primary_key=True)
     name = Column(String, unique=True)
     geometry = Column(Geometry("POLYGON", srid=SRID))
