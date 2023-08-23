@@ -52,13 +52,13 @@ def calc_trip_mat(f_mat, attr_f_mat, p_array, a_array):
     return trip_mat
 
 
-def get_prod_error(trip_mat, prod_expected):
-    productions = np.array([trip_mat[i].sum() for i in range(trip_mat.shape[0])])
+def get_prod_error(trip_mat: np.array, prod_expected: np.array) -> float:
+    productions = trip_mat.sum(axis=1)
     return np.square(prod_expected - productions).mean()
 
 
-def get_attr_error(trip_mat, attr_expected):
-    attractions = np.array([trip_mat[:, i].sum() for i in range(trip_mat.shape[0])])
+def get_attr_error(trip_mat: np.array, attr_expected: np.array) -> float:
+    attractions = trip_mat.sum(axis=0)
     return np.square(attr_expected - attractions).mean()
 
 
