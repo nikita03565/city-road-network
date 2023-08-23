@@ -51,6 +51,16 @@ def get_image_coordinates(bbox) -> tuple[float, float, float, float]:
     return top, left, bottom, right
 
 
+def concat_vertically(arr1: np.array, arr2: np.array) -> np.array:
+    res = np.concatenate([arr1, arr2])
+    return res
+
+
+def concat_horizontally(arr1: np.array, arr2: np.array) -> np.array:
+    res = np.transpose(np.concatenate([np.transpose(arr1), np.transpose(arr2)]))
+    return res
+
+
 def combine_tiles(tile_ids_sorted: list[str]) -> np.array:
     """Combines several tiles into one.
 
@@ -67,16 +77,27 @@ def combine_tiles(tile_ids_sorted: list[str]) -> np.array:
     right_bottom = tile_ids_sorted[1]
     left_top_row, left_top_col = parse_tile_id(left_top)
     right_bottom_row, right_bottom_col = parse_tile_id(right_bottom)
-    if (right_bottom_col > left_top_col) and (right_bottom_row > left_top_row):
-        raise NotImplementedError("Handle 4 tiles")
+
     left_top_tile = get_tile(left_top)
     right_bottom_tile = get_tile(right_bottom)
-    if (right_bottom_row == left_top_row) and (right_bottom_col > left_top_col):
-        tile = np.transpose(np.concatenate([np.transpose(left_top_tile), np.transpose(right_bottom_tile)]))
-        return tile
-    if (right_bottom_row > left_top_row) and (right_bottom_col == left_top_col):
-        tile = np.concatenate([left_top_tile, right_bottom_tile])
-        return tile
+    if (right_bottom_col == left_top_col + 1) and (right_bottom_row == left_top_row + 1):
+        right_top_col, right_top_row = right_bottom_col, left_top_row
+        left_bottom_col, left_bottom_row = left_top_col, right_bottom_row
+
+        right_top = f"R{right_top_row}_C{right_top_col}"
+        left_bottom = f"R{left_bottom_row}_C{left_bottom_col}"
+
+        right_top_tile = get_tile(right_top)
+        left_bottom_tile = get_tile(left_bottom)
+
+        left_part = concat_vertically(left_top_tile, left_bottom_tile)
+        right_part = concat_vertically(right_top_tile, right_bottom_tile)
+        return concat_horizontally(left_part, right_part)
+
+    if (right_bottom_row == left_top_row) and (right_bottom_col == left_top_col + 1):
+        return concat_horizontally(left_top_tile, right_bottom_tile)
+    if (right_bottom_row == left_top_row + 1) and (right_bottom_col == left_top_col):
+        return concat_vertically(left_top_tile, right_bottom_tile)
     raise RuntimeError(f"Unexpected case with tiles {tile_ids_sorted}")
 
 
