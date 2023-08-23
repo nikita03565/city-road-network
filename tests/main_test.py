@@ -1,6 +1,8 @@
+import numpy as np
+
 from city_road_network.downloaders.ghsl import get_tile_ids
 from city_road_network.downloaders.osm import get_relation_poly
-from city_road_network.processing.ghsl import get_image_coordinates
+from city_road_network.processing.ghsl import combine_tiles, get_image_coordinates
 from city_road_network.utils.utils import convert_coordinates, get_distance
 
 
@@ -35,3 +37,90 @@ def test_distance():
 
     d2 = get_distance(p1, p2)
     assert almost_equal(d2, 12.456775938122396)
+
+
+def mock_get_tile(tile_id):
+    """
+    11 12 13 | 14 15 16
+    17 18 19 | 20 21 22
+    -------------------
+    23 24 25 | 26 27 28
+    29 30 31 | 32 33 34
+    """
+    if tile_id == "R3_C20":
+        return np.array(
+            [
+                [11, 12, 13],
+                [17, 18, 19],
+            ]
+        )
+    if tile_id == "R3_C21":
+        return np.array(
+            [
+                [14, 15, 16],
+                [20, 21, 22],
+            ]
+        )
+    if tile_id == "R4_C20":
+        return np.array(
+            [
+                [23, 24, 25],
+                [29, 30, 31],
+            ]
+        )
+    if tile_id == "R4_C21":
+        return np.array(
+            [
+                [26, 27, 28],
+                [32, 33, 34],
+            ]
+        )
+    raise ValueError(f"Unexpected {tile_id=}")
+
+
+def test_combine_tiles(mocker):
+    mocker.patch("city_road_network.processing.ghsl.get_tile", mock_get_tile)
+
+    tiles_sorted = ["R3_C20"]
+    res = combine_tiles(tiles_sorted)
+    expected = np.array(
+        [
+            [11, 12, 13],
+            [17, 18, 19],
+        ]
+    )
+    assert np.array_equal(res, expected)
+
+    tiles_sorted = ["R3_C20", "R4_C20"]
+    res = combine_tiles(tiles_sorted)
+    expected = np.array(
+        [
+            [11, 12, 13],
+            [17, 18, 19],
+            [23, 24, 25],
+            [29, 30, 31],
+        ]
+    )
+    assert np.array_equal(res, expected)
+
+    tiles_sorted = ["R3_C20", "R3_C21"]
+    res = combine_tiles(tiles_sorted)
+    expected = np.array(
+        [
+            [11, 12, 13, 14, 15, 16],
+            [17, 18, 19, 20, 21, 22],
+        ]
+    )
+    assert np.array_equal(res, expected)
+
+    tiles_sorted = ["R3_C20", "R4_C21"]
+    res = combine_tiles(tiles_sorted)
+    expected = np.array(
+        [
+            [11, 12, 13, 14, 15, 16],
+            [17, 18, 19, 20, 21, 22],
+            [23, 24, 25, 26, 27, 28],
+            [29, 30, 31, 32, 33, 34],
+        ]
+    )
+    assert np.array_equal(res, expected)
