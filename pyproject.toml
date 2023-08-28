@@ -1,3 +1,41 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "city_road_network"
+version = "0.0.1"
+authors = [{ name = "Nikita Povaliaev", email = "nikita03565@gmail.com" }]
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+]
+dependencies = [
+    "GeoAlchemy2>=0.14.1",
+    "SQLAlchemy>=2.0.20",
+    "folium>=0.14.0",
+    "geopandas>=0.13.2",
+    "neo4j>=5.11.0",
+    "osmnx==1.6.0",
+    "pandas>=2.0.3",
+    "psycopg2-binary>=2.9.7",
+    "python-dotenv>=1.0.0",
+    "rasterio>=1.3.8",
+    "scipy>=1.11.2",
+]
+requires-python = ">=3.11"
+description = "A tool for city road network data downloading."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+
+[tool.setuptools]
+packages = ["city_road_network"]
+
+[project.urls]
+Repository = "https://github.com/nikita03565/city-road-network"
+
+
 [tool.black]
 line-length = 120
 target-version = ['py311']
