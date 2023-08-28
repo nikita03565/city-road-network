@@ -3,7 +3,6 @@ from math import ceil, floor
 
 import numpy as np
 import pandas as pd
-from natsort import natsorted
 from shapely import Point, Polygon
 
 from city_road_network.downloaders.ghsl import get_tile, get_tile_ids
@@ -101,6 +100,18 @@ def combine_tiles(tile_ids_sorted: list[str]) -> np.array:
     raise RuntimeError(f"Unexpected case with tiles {tile_ids_sorted}")
 
 
+def _sort_tile_ids(tile_ids: list[str]) -> list[str]:
+    if len(tile_ids) == 1:
+        return [tile_ids[0]]
+    if len(tile_ids) != 2:
+        raise RuntimeError("Unexpected number of tiles")
+    row0, col0 = parse_tile_id(tile_ids[0])
+    row1, col1 = parse_tile_id(tile_ids[1])
+    if row0 < row1 or col0 < col1:
+        return [tile_ids[0], tile_ids[1]]
+    return [tile_ids[1], tile_ids[0]]
+
+
 def process_population(poly: Polygon, city_name: str | None = None) -> pd.DataFrame:
     """Reads tiles, joins them and returns only part that is inside of area's of interest bounding box.
 
@@ -113,7 +124,7 @@ def process_population(poly: Polygon, city_name: str | None = None) -> pd.DataFr
     bbox = poly.bounds
     top, left, bottom, right = get_image_coordinates(bbox)
     tile_ids = get_tile_ids(top, left, bottom, right)
-    tile_ids_sorted = natsorted(tile_ids)
+    tile_ids_sorted = _sort_tile_ids(list(tile_ids))
 
     tile = combine_tiles(tile_ids_sorted)
 

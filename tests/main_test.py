@@ -1,8 +1,13 @@
 import numpy as np
+import pytest
 
 from city_road_network.downloaders.ghsl import get_tile_ids
 from city_road_network.downloaders.osm import get_relation_poly
-from city_road_network.processing.ghsl import combine_tiles, get_image_coordinates
+from city_road_network.processing.ghsl import (
+    _sort_tile_ids,
+    combine_tiles,
+    get_image_coordinates,
+)
 from city_road_network.utils.utils import convert_coordinates, get_distance
 
 
@@ -124,3 +129,18 @@ def test_combine_tiles(mocker):
         ]
     )
     assert np.array_equal(res, expected)
+
+
+@pytest.mark.parametrize(
+    "tile_ids,expected",
+    [
+        (["R10_C20"], ["R10_C20"]),
+        (["R9_C20", "R10_C20"], ["R9_C20", "R10_C20"]),
+        (["R11_C20", "R10_C20"], ["R10_C20", "R11_C20"]),
+        (["R11_C21", "R11_C20"], ["R11_C20", "R11_C21"]),
+        (["R11_C21", "R10_C20"], ["R10_C20", "R11_C21"]),
+    ],
+)
+def test_sort_tiles(tile_ids, expected):
+    tile_ids_sorted = _sort_tile_ids(tile_ids)
+    assert tile_ids_sorted == expected
