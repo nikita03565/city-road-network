@@ -61,7 +61,7 @@ def get_tile_ids(top: float, left: float, bottom: float, right: float) -> dict[s
     :param right: right coordinate of a bounding box of an area of interest.
     :type right: float
     :return: Ids of tiles where coordinates are.
-    :rtype: Set[int]
+    :rtype: dict[str, gpd.GeoSeries]
     """
     points = [Point(left, top), Point(right, top), Point(left, bottom), Point(right, bottom)]
     gdf = get_shapefile()
@@ -71,6 +71,8 @@ def get_tile_ids(top: float, left: float, bottom: float, right: float) -> dict[s
         poly = row["geometry"]
         if any(poly.contains(point) for point in points):
             tile_ids[row["tile_id"]] = row
+    if len(tile_ids) > 2:
+        raise RuntimeError(f"Unexpected number of tile ids: {tile_ids.keys()}")
     return tile_ids
 
 
