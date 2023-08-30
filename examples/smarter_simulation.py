@@ -15,7 +15,7 @@ from city_road_network.utils.utils import get_data_subdir, get_html_subdir
 
 if __name__ == "__main__":
     # loading data...
-    city_name = "moscow"
+    city_name = "spb"
     data_dir = get_data_subdir(city_name)
     html_dir = get_html_subdir(city_name)
 
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     # saving map and paths
     ts = int(time.time())
     map = draw_trips_map(new_graph)
-    clean_weight = weight.replace("(", "").replace(")", "").replace(" ", "")
+    clean_weight = weight.replace("(", "").replace(")", "").replace(" ", "_")
     filename = f"smarter_paths_by_{clean_weight}_{ts}"
     map.save(os.path.join(html_dir, f"{filename}.html"))
     with open(os.path.join(data_dir, f"{filename}.pkl"), "wb") as f:

@@ -12,8 +12,8 @@ from city_road_network.utils.utils import get_data_subdir
 from city_road_network.writers.csv import save_osm_data
 
 if __name__ == "__main__":
-    CITY_NAME = "spb"
-    data_dir = get_data_subdir(city_name=CITY_NAME)
+    city_name = "spb"
+    data_dir = get_data_subdir(city_name=city_name)
 
     # moscow_rel = "2555133"
     # chel_rel = "4442556"
@@ -26,16 +26,16 @@ if __name__ == "__main__":
     boundaries = kad_poly.union(spb_poly)
     data = get_osm_data(boundaries, admin_level=8)
     len(data.graph.nodes), len(data.graph.edges)
-    save_osm_data(data, city_name=CITY_NAME)
-    pop_df = process_population(boundaries, CITY_NAME)
-    process_edges(city_name=CITY_NAME)
-    nodes_df, zones_df = process_zones(city_name=CITY_NAME)
-    zones_map = draw_zones(zones_df, save=True, city_name=CITY_NAME, filename="zones.html")
-    map = draw_population(pop_df, save=True, filename="population.html", city_name=CITY_NAME)
+    save_osm_data(data, city_name=city_name)
+    pop_df = process_population(boundaries, city_name)
+    process_edges(city_name=city_name)
+    nodes_df, zones_df = process_zones(city_name=city_name)
+    zones_map = draw_zones(zones_df, save=True, city_name=city_name, filename="zones.html")
+    map = draw_population(pop_df, save=True, filename="population.html", city_name=city_name)
     graph = read_graph(
         os.path.join(data_dir, "nodelist_upd.csv"),
         os.path.join(data_dir, "edgelist_upd.csv"),
     )
-    map = draw_graph(graph, save=True, filename="map.html", city_name=CITY_NAME)
+    map = draw_graph(graph, save=True, filename="map.html", city_name=city_name)
     df = pd.read_csv(os.path.join(data_dir, "nodelist_upd.csv"))
     df.head()

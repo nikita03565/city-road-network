@@ -9,4 +9,4 @@ Installation:
 3. Activate virtual environment.
 4. Install dependencies `pip install -r requirements.txt`.
 
-For example usage refer to `examples` directory.
+For example usage refer to `examples` directory. Expected sequence is to download data, run gravity to model to obtain OD matrix and run simulation (naive, smarter or sumo). Additionally you can export the data to PostgreSQL w/ PostGIS or Neo4j.

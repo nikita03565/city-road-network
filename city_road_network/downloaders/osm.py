@@ -165,8 +165,8 @@ def get_poi(poly: Polygon) -> gpd.GeoDataFrame:
     return df
 
 
-def get_graph(poly: Polygon, simplify: bool = True) -> nx.MultiDiGraph:
-    graph = ox.graph_from_polygon(poly, simplify=simplify)
+def get_graph(poly: Polygon, simplify: bool = True, network_type: str = "drive") -> nx.MultiDiGraph:
+    graph = ox.graph_from_polygon(poly, simplify=simplify, network_type=network_type)
     for node_id, node_data in graph.nodes(data=True):
         if ("lat" not in node_data) or ("lon" not in node_data):
             node_data["lat"] = node_data["y"]

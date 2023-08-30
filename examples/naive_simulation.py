@@ -37,7 +37,8 @@ if __name__ == "__main__":
     # saving map and paths
     ts = int(time.time())
     map = draw_trips_map(new_graph)
-    map.save(os.path.join(html_dir, f"paths_{ts}.html"))
-    clean_weight = weight.replace("(", "").replace(")", "").replace(" ", "")
-    with open(os.path.join(data_dir, f"paths_by_{clean_weight}_{ts}.pkl"), "wb") as f:
+    clean_weight = weight.replace("(", "").replace(")", "").replace(" ", "_")
+    filename = f"paths_by_{clean_weight}_{ts}"
+    map.save(os.path.join(html_dir, f"{filename}.html"))
+    with open(os.path.join(data_dir, f"{filename}.pkl"), "wb") as f:
         pickle.dump(all_paths, f)
