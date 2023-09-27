@@ -6,7 +6,7 @@ from city_road_network.algo.common import (
     add_passes_count,
     build_paths,
     recalculate_flow_time,
-    yeild_zone_pairs,
+    yield_zone_pairs,
 )
 from city_road_network.utils.utils import get_logger
 
@@ -41,7 +41,7 @@ def run_smarter_simulation(graph, trip_mat, weight, path_starts_ends=None, n=Non
 
     # sort by trip_mat value
     pairs = sorted(
-        yeild_zone_pairs(n, trip_mat, weight, path_starts_ends), key=lambda x: x[2][x[0]][x[1]], reverse=True
+        yield_zone_pairs(n, trip_mat, weight, path_starts_ends), key=lambda x: x[2][x[0]][x[1]], reverse=True
     )
     start = time.time()
     with ProcessPoolExecutor() as executor:

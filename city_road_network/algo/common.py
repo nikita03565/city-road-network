@@ -4,6 +4,9 @@ from math import exp
 from typing import NamedTuple
 
 import networkx as nx
+from city_road_network.utils.utils import get_logger
+
+logger = get_logger(__name__)
 
 
 class PathNT(NamedTuple):
@@ -11,7 +14,7 @@ class PathNT(NamedTuple):
     travel_time: float
 
 
-def yeild_zone_pairs(n: int, *rest):
+def yield_zone_pairs(n: int, *rest):
     for i in range(n):
         for j in range(n):
             yield i, j, *rest

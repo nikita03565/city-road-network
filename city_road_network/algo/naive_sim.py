@@ -5,7 +5,7 @@ from concurrent.futures import ProcessPoolExecutor
 from city_road_network.algo.common import (
     add_passes_count,
     build_paths,
-    yeild_zone_pairs,
+    yield_zone_pairs,
 )
 
 
@@ -31,9 +31,8 @@ def run_naive_simulation(graph, trip_mat, weight, path_starts_ends=None, n=None)
     mat = [[list() for _ in range(n)] for _ in range(n)]
 
     start = time.time()
-    pairs = sorted(
-        yeild_zone_pairs(n, g, trip_mat, weight, path_starts_ends), key=lambda x: x[3][x[0]][x[1]], reverse=True
-    )
+    pairs = yield_zone_pairs(n, g, trip_mat, weight, path_starts_ends)
+
     with ProcessPoolExecutor() as executor:
         for result in executor.map(process_cell, pairs):
             o_zone, d_zone, paths = result

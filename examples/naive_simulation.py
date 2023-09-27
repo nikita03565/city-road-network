@@ -19,7 +19,7 @@ if __name__ == "__main__":
     data_dir = get_data_subdir(city_name)
     html_dir = get_html_subdir(city_name)
     G = read_graph(os.path.join(data_dir, "nodelist_upd.csv"), os.path.join(data_dir, "edgelist_upd.csv"))
-    trip_mat = np.load(os.path.join(data_dir, "trip_mat.npy"))
+    trip_mat = np.load(os.path.join(data_dir, "trip_mat.npy")) // 10
 
     zones_df = pd.read_csv(os.path.join(data_dir, "zones_upd.csv"), index_col=0)
     zones_df["geometry"] = zones_df["geometry"].apply(loads)
@@ -27,7 +27,7 @@ if __name__ == "__main__":
 
     # running actual simulation
     weight = "flow_time (s)"  # or "length (m)"
-    all_paths, new_graph = run_naive_simulation(G, trip_mat, weight=weight)
+    all_paths, new_graph = run_naive_simulation(G, trip_mat, weight=weight, n=20)
 
     # checking that all paths have been generated
     for i in range(len(all_paths)):
