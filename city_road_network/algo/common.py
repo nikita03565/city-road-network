@@ -4,6 +4,7 @@ from math import exp
 from typing import NamedTuple
 
 import networkx as nx
+
 from city_road_network.utils.utils import get_logger
 
 logger = get_logger(__name__)

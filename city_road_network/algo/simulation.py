@@ -1,20 +1,13 @@
-import numpy as np
-import networkx as nx
 import random
-from city_road_network.algo.common import PathNT
 from typing import NamedTuple
+
+import networkx as nx
+import numpy as np
+
+from city_road_network.algo.common import PathNT
 from city_road_network.utils.utils import get_logger
 
 logger = get_logger(__name__)
-
-
-def filter_nodes(graph: nx.MultiDiGraph, zone_id: str):
-    nodes = [node for node, data in graph.nodes(data=True) if zone_id == str(data["zone"])]
-    return nodes
-
-
-def get_random_node(graph: nx.MultiDiGraph, zone_id: str):
-    return random.choice(filter_nodes(graph, zone_id))
 
 
 class BatchPaths(NamedTuple):
@@ -24,8 +17,16 @@ class BatchPaths(NamedTuple):
 
 
 class BatchFixedPaths(NamedTuple):
+    o_zone: int
+    d_zone: int
     o_node: int
     d_node: int
+
+
+class BuiltPaths(NamedTuple):
+    o_zone: int
+    d_zone: int
+    paths: list[PathNT]
 
 
 def yield_batches(trip_map, batch_size=1000) -> list[list[BatchPaths]]:
@@ -53,10 +54,10 @@ def yield_batches(trip_map, batch_size=1000) -> list[list[BatchPaths]]:
 
 def yield_starts_ends(paths, batch_size=1000) -> list[list[BatchFixedPaths]]:
     lst = []
-    for row in paths:
-        for cell in row:
+    for i, row in enumerate(paths):
+        for j, cell in enumerate(row):
             for path_nt in cell:
-                lst.append(BatchFixedPaths(path_nt.path[0], path_nt.path[-1]))
+                lst.append(BatchFixedPaths(i, j, path_nt.path[0], path_nt.path[-1]))
                 if len(lst) >= batch_size:
                     yield lst
                     lst = []
@@ -64,45 +65,55 @@ def yield_starts_ends(paths, batch_size=1000) -> list[list[BatchFixedPaths]]:
         yield lst
 
 
+# normal: needs graph: nx.MultiDiGraph, o_zone: int, d_zone: int
+# fixed: needs only pairs
+class RandomNodesGetter:
+    @staticmethod
+    def filter_nodes(graph: nx.MultiDiGraph, zone_id: str):
+        nodes = [node for node, data in graph.nodes(data=True) if zone_id == str(data["zone"])]
+        return nodes
+
+    @staticmethod
+    def get_random_node(graph: nx.MultiDiGraph, zone_id: str):
+        return random.choice(RandomNodesGetter.filter_nodes(graph, zone_id))
+
+    # TODO THIS SHOULD BE REPLACED FOR FIXED ENDS CASE
+    @staticmethod
+    def get_nodes_pair(graph: nx.MultiDiGraph, o_zone: int, d_zone: int):
+        u = RandomNodesGetter.get_random_node(graph, str(o_zone))
+        v = RandomNodesGetter.get_random_node(graph, str(d_zone))
+        return u, v
+
+
+class FixedNodesGetter:
+    def __init__(self, pairs: list[BatchFixedPaths]) -> None:
+        self.pairs = (p for p in pairs)  # turn into generator
+
+    def get_nodes_pair(self, graph: nx.MultiDiGraph, o_zone: int, d_zone: int, *args, **kwargs):
+        x = next(self.pairs, None)
+        assert x.o_zone == o_zone
+        assert x.d_zone == d_zone
+        return x
+
+
 class BaseSimulation:
-    def get_nodes_pair(self, graph: nx.MultiDiGraph, o_zone: int, d_zone: int, path_starts_ends=None, path_idx=None):
-        if path_starts_ends is None:
-            u = get_random_node(graph, str(o_zone))
-            v = get_random_node(graph, str(d_zone))
-            return u, v
-        return path_starts_ends[o_zone][d_zone][path_idx]
+    def __init__(self, graph: nx.MultiDiGraph, weight: str, pairs: list[BatchFixedPaths] | None = None) -> None:
+        self.graph = graph
+        self.weight = weight
+        if pairs is not None:
+            self.nodes_getter = FixedNodesGetter(pairs)
+        else:
+            self.nodes_getter = RandomNodesGetter()
 
-    def build_path(
-        self, graph: nx.MultiDiGraph, o_zone: int, d_zone: int, weight: str, path_starts_ends, max_iter: int = 100
-    ) -> PathNT | None:
-        for _ in range(max_iter):
-            u, v = self.get_nodes_pair(graph, o_zone, d_zone, path_starts_ends, path_idx="#TODO")
-            try:
-                path_cost, path = nx.single_source_dijkstra(graph, u, v, weight=weight)
-            except Exception:
-                path = None
-            if path and path_cost:
-                return PathNT(path, path_cost)
-        logger.error("Failed to find path between zones %s and %s after %s iterations", o_zone, d_zone, max_iter)
-        return None
-
-    def build_paths(
-        self,
-        graph: nx.MultiDiGraph,
-        o_zone: int,
-        d_zone: int,
-        count: int,
-        weight: str,
-        path_starts_ends,
-        max_iter: int = 100_000,
-    ) -> list[PathNT]:
+    # THESE TWO ARE GOOD
+    def _build_paths(self, o_zone: int, d_zone: int, count: int, max_iter: int = 100_000) -> list[PathNT]:
         paths = []
         i = 0
         while len(paths) != count:
-            u, v = self.get_nodes_pair(graph, o_zone, d_zone, path_starts_ends, path_idx=len(paths))
+            u, v = self.nodes_getter.get_nodes_pair(self.graph, o_zone, d_zone)
 
             try:
-                path_cost, path = nx.single_source_dijkstra(graph, u, v, weight=weight)
+                path_cost, path = nx.single_source_dijkstra(self.graph, u, v, weight=self.weight)
             except Exception:
                 path = None
 
@@ -115,18 +126,26 @@ class BaseSimulation:
         assert len(paths) == count
         return paths
 
-
-class NaiveSimulation(BaseSimulation):
-    pass
-
-
-class NaiveSimulationFixedNodes:
-    pass
-
-
-class SmarterSimulation(BaseSimulation):
-    pass
+    def build_paths(self, batches: list[BatchPaths]) -> list[BuiltPaths]:
+        print("STARTED!!!")
+        all_paths = []
+        for batch in batches:
+            paths = self._build_paths(batch.o_zone, batch.d_zone, batch.count)
+            all_paths.append(BuiltPaths(batch.o_zone, batch.d_zone, paths))
+        return all_paths
 
 
-class SmarterSimulationFixedNodes:
-    pass
+# class NaiveSimulation(BaseSimulation):
+#     pass
+
+
+# class NaiveSimulationFixedNodes:
+#     pass
+
+
+# class SmarterSimulation(BaseSimulation):
+#     pass
+
+
+# class SmarterSimulationFixedNodes:
+#     pass
