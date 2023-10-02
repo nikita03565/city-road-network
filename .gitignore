@@ -155,7 +155,7 @@ fabric.properties
 .vscode
 
 cache/
-data/
+/data/
 images/
 htmls/
 nhts_survey/

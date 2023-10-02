@@ -1,5 +1,6 @@
 import copy
 import random
+from dataclasses import dataclass
 from math import exp
 from typing import NamedTuple
 
@@ -14,6 +15,16 @@ class PathNT(NamedTuple):
     path: list[int]
     travel_time: float
 
+    # def __repr__(self):
+    #     # TimedPath(path=[1376079375, 3723286353], travel_time=1691.973981419478)
+    #     return f"TimedPath(path=[{self.path[0]}, {self.path[-1]}], travel_time={self.travel_time:.2f})"
+
+
+@dataclass(frozen=True)
+class TimedPath:
+    path: list[int]
+    travel_time: float
+
 
 def yield_zone_pairs(n: int, *rest):
     for i in range(n):
@@ -21,7 +32,7 @@ def yield_zone_pairs(n: int, *rest):
             yield i, j, *rest
 
 
-def add_passes_count(graph: nx.MultiDiGraph, trip_mat: list[list[list[PathNT]]]):
+def add_passes_count(graph: nx.MultiDiGraph, trip_mat: list[list[list[TimedPath]]]):
     g = copy.deepcopy(graph)
     for i in range(len(trip_mat)):
         for j in range(len(trip_mat)):
@@ -68,7 +79,7 @@ def get_nodes_pair(graph: nx.MultiDiGraph, o_zone: int, d_zone: int, path_starts
 
 def build_paths(
     graph: nx.MultiDiGraph, o_zone: int, d_zone: int, count: int, weight: str, path_starts_ends, max_iter: int = 100_000
-) -> list[PathNT]:
+) -> list[TimedPath]:
     paths = []
     i = 0
     while len(paths) != count:
@@ -80,7 +91,7 @@ def build_paths(
             path = None
 
         if path and path_cost:
-            paths.append(PathNT(path, path_cost))
+            paths.append(TimedPath(path, path_cost))
 
         i += 1
         if i > max_iter:

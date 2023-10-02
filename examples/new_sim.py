@@ -1,24 +1,19 @@
 import copy
-import math
 import os
 import pickle
 import time
 from concurrent.futures import ProcessPoolExecutor
 
 import geopandas as gpd
-import numpy as np
 import pandas as pd
 from shapely.wkt import loads
 
-from city_road_network.algo.common import (
-    add_passes_count,
-    # build_paths,
-    # yield_zone_pairs,
-)
+from city_road_network.algo.common import add_passes_count
 from city_road_network.algo.simulation import (
-    BaseSimulation,
+    NaiveSimulation,
+    NaiveSimulationFixedNodes,
     yield_batches,
-    # yield_starts_ends,
+    yield_starts_ends,
 )
 from city_road_network.config import default_crs
 from city_road_network.utils.io import read_graph
@@ -26,7 +21,7 @@ from city_road_network.utils.map import draw_trips_map
 from city_road_network.utils.utils import get_data_subdir, get_html_subdir
 
 
-def run_naive_simulation(graph, trip_mat, weight, n=None, max_workers=None):
+def run_naive_simulation(graph, weight, trip_mat=None, old_paths=None, n=None, max_workers=None):
     if max_workers is None:
         max_workers = os.cpu_count()
     g = copy.deepcopy(graph)
@@ -38,21 +33,24 @@ def run_naive_simulation(graph, trip_mat, weight, n=None, max_workers=None):
     for s, e, edge_data in g.edges(data=True):
         edge_data["passes_count"] = 0
     if n is None:
-        n = trip_mat.shape[0]
+        n = trip_mat.shape[0] if trip_mat else len(old_paths)
     else:
         trip_mat = trip_mat[:n, :n]
     mat = [[list() for _ in range(n)] for _ in range(n)]
 
     start = time.time()
-    pairs = yield_batches(trip_mat)  # yield_zone_pairs(n, g, trip_mat, weight, path_starts_ends)
-    estimated_batches = math.ceil(trip_mat.sum() / 1000)
-    sim = BaseSimulation(g, weight)
+    if trip_mat:
+        pairs = yield_batches(trip_mat)
+        sim = NaiveSimulation(g, weight)
+    if old_paths:
+        pairs = yield_starts_ends(old_paths)
+        sim = NaiveSimulationFixedNodes(g, weight)
+
     c = 0
-    print(f"{estimated_batches=}")
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         for result in executor.map(sim.build_paths, pairs):
             c += 1
-            print("processed batch", c, "/", estimated_batches)
+            print("processed batch", c)
             for built_paths in result:
                 mat[built_paths.o_zone][built_paths.d_zone].extend(built_paths.paths)
 
@@ -68,7 +66,10 @@ if __name__ == "__main__":
     data_dir = get_data_subdir(city_name)
     html_dir = get_html_subdir(city_name)
     G = read_graph(os.path.join(data_dir, "nodelist_upd.csv"), os.path.join(data_dir, "edgelist_upd.csv"))
-    trip_mat = np.load(os.path.join(data_dir, "trip_mat.npy"))
+    # trip_mat = np.load(os.path.join(data_dir, "trip_mat.npy"))
+
+    with open(os.path.join(data_dir, "paths_by_flow_time_s_1695987799.pkl"), "rb") as f:
+        old_paths = pickle.load(f)
 
     zones_df = pd.read_csv(os.path.join(data_dir, "zones_upd.csv"), index_col=0)
     zones_df["geometry"] = zones_df["geometry"].apply(loads)
@@ -77,11 +78,11 @@ if __name__ == "__main__":
     # running actual simulation
     weight = "flow_time (s)"  # or "length (m)"
 
-    all_paths, new_graph = run_naive_simulation(G, trip_mat, weight=weight)
+    all_paths, new_graph = run_naive_simulation(G, weight, trip_mat=None, old_paths=old_paths)
     # checking that all paths have been generated
-    for i in range(len(all_paths)):
-        for j in range(len(all_paths)):
-            assert len(all_paths[i][j]) == trip_mat[i, j]
+    # for i in range(len(all_paths)):
+    #     for j in range(len(all_paths)):
+    #         assert len(all_paths[i][j]) == trip_mat[i, j]
 
     # saving map and paths
     ts = int(time.time())
