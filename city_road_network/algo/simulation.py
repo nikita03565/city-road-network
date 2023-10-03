@@ -148,9 +148,16 @@ class NaiveSimulationFixedNodes(BaseSimulation):
         return super().build_paths(batches)
 
 
-# class SmarterSimulation(BaseSimulation):
-#     pass
+class SmarterSimulation(BaseSimulation):
+    def __init__(self, graph: nx.MultiDiGraph, weight: str) -> None:
+        super().__init__(graph, weight)
+        self.nodes_getter = RandomNodesGetter()
 
 
-# class SmarterSimulationFixedNodes:
-#     pass
+class SmarterSimulationFixedNodes(BaseSimulation):
+    def __init__(self, graph: nx.MultiDiGraph, weight: str) -> None:
+        super().__init__(graph, weight)
+        self.nodes_getter = FixedNodesGetter()
+
+    def build_paths(self, batches: list[BatchFixedPaths]) -> list[BuiltPaths]:
+        return super().build_paths(batches)
