@@ -1,11 +1,21 @@
+import copy
+import os
 import random
+import time
 from collections.abc import Generator, Iterator
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
+from functools import partial
+from itertools import islice
 
 import networkx as nx
 import numpy as np
 
-from city_road_network.algo.common import TimedPath
+from city_road_network.algo.common import (
+    TimedPath,
+    add_passes_count,
+    recalculate_flow_time,
+)
 from city_road_network.utils.utils import get_logger
 
 logger = get_logger(__name__)
@@ -28,6 +38,25 @@ class BuiltPaths:
     o_zone: int
     d_zone: int
     paths: list[TimedPath]
+
+
+def calc_total_paths(trip_mat: np.array = None, old_paths: list[list[list[TimedPath]]] = None) -> int:
+    if trip_mat is not None:
+        return trip_mat.sum()
+    total_paths = 0
+    for row in old_paths:
+        for cell in row:
+            total_paths += len(cell)
+    return total_paths
+
+
+def take(iterable, n):
+    return list(islice(iterable, n))
+
+
+def chunked(iterable, n):
+    iterator = iter(partial(take, iter(iterable), n), [])
+    return iterator
 
 
 def yield_batches(trip_mat: np.array, batch_size=1000) -> Generator[list[BatchPaths], None, None]:
@@ -78,6 +107,22 @@ def yield_starts_ends(
         yield lst
 
 
+def validate_weight(graph, weight):
+    edge_attrs = next(iter(graph.edges(data=True)))[2]
+    if weight not in edge_attrs:
+        raise ValueError(f"Weight '{weight}' is not in edge attrs: {edge_attrs.keys()}")
+
+
+def get_matrix_size(n=None, trip_mat=None, old_paths=None):
+    if n is not None:
+        return n
+    if trip_mat is not None:
+        return trip_mat.shape[0]
+    if old_paths is not None:
+        return len(old_paths)
+    raise ValueError("One of trip_mat, old_paths must be provided")
+
+
 class RandomNodesGetter:
     @staticmethod
     def filter_nodes(graph: nx.MultiDiGraph, zone_id: str):
@@ -102,8 +147,21 @@ class FixedNodesGetter:
 
 class BaseSimulation:
     def __init__(self, graph: nx.MultiDiGraph, weight: str) -> None:
-        self.graph = graph
+        g = copy.deepcopy(graph)
+        validate_weight(g, weight)
+        for s, e, edge_data in g.edges(data=True):
+            edge_data["passes_count"] = 0
+        self.graph = g
         self.weight = weight
+        self.nodes_getter = None
+
+    def set_nodes_getter(self, trip_mat, old_paths):
+        if trip_mat is not None:
+            self.nodes_getter = RandomNodesGetter()
+        elif old_paths is not None:
+            self.nodes_getter = FixedNodesGetter()
+        else:
+            raise ValueError("One of trip_mat, old_paths must be provided")
 
     def _build_paths(self, bp: BatchPaths, max_iter: int = 100_000) -> list[TimedPath]:
         paths = []
@@ -138,26 +196,77 @@ class NaiveSimulation(BaseSimulation):
         super().__init__(graph, weight)
         self.nodes_getter = RandomNodesGetter()
 
+    def run(self, trip_mat=None, old_paths=None, n=None, max_workers=None):
+        if max_workers is None:
+            max_workers = os.cpu_count()
 
-class NaiveSimulationFixedNodes(BaseSimulation):
-    def __init__(self, graph: nx.MultiDiGraph, weight: str) -> None:
-        super().__init__(graph, weight)
-        self.nodes_getter = FixedNodesGetter()
+        n = get_matrix_size(n, trip_mat, old_paths)
+        self.set_nodes_getter(trip_mat, old_paths)
 
-    def build_paths(self, batches: list[BatchFixedPaths]) -> list[BuiltPaths]:
-        return super().build_paths(batches)
+        if trip_mat is not None:
+            trip_mat = trip_mat[:n, :n]
+
+        if trip_mat is not None:
+            batches = yield_batches(trip_mat)
+        if old_paths is not None:
+            batches = yield_starts_ends(old_paths)
+
+        c = 0
+        mat = [[list() for _ in range(n)] for _ in range(n)]
+        start = time.time()
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+            for result in executor.map(self.build_paths, batches):
+                c += 1
+                print("processed batch", c)
+                for built_paths in result:
+                    mat[built_paths.o_zone][built_paths.d_zone].extend(built_paths.paths)
+
+        print("finished in", time.time() - start)
+
+        self.graph = add_passes_count(self.graph, mat)
+        return mat, self.graph
 
 
 class SmarterSimulation(BaseSimulation):
-    def __init__(self, graph: nx.MultiDiGraph, weight: str) -> None:
-        super().__init__(graph, weight)
-        self.nodes_getter = RandomNodesGetter()
+    def calc_batch_size(self, trip_mat=None, old_paths=None, max_workers=None, n_recalc=20):
+        total_paths = calc_total_paths(trip_mat, old_paths)
+        per_iteration = total_paths // n_recalc
+        batch_size = per_iteration // max_workers
+        print(total_paths, per_iteration, batch_size)
+        return batch_size
 
+    def run(self, trip_mat=None, old_paths=None, n=None, max_workers=None, n_recalc=20):
+        if max_workers is None:
+            max_workers = os.cpu_count()
 
-class SmarterSimulationFixedNodes(BaseSimulation):
-    def __init__(self, graph: nx.MultiDiGraph, weight: str) -> None:
-        super().__init__(graph, weight)
-        self.nodes_getter = FixedNodesGetter()
+        n = get_matrix_size(n, trip_mat, old_paths)
+        self.set_nodes_getter(trip_mat, old_paths)
 
-    def build_paths(self, batches: list[BatchFixedPaths]) -> list[BuiltPaths]:
-        return super().build_paths(batches)
+        if trip_mat is not None:
+            trip_mat = trip_mat[:n, :n]
+
+        batch_size = self.calc_batch_size(trip_mat, old_paths, max_workers, n_recalc)
+
+        if trip_mat is not None:
+            batches = yield_batches(trip_mat, batch_size=batch_size)
+        if old_paths is not None:
+            batches = yield_starts_ends(old_paths, batch_size=batch_size)
+        chunks = chunked(batches, max_workers)
+
+        c = 0
+        mat = [[list() for _ in range(n)] for _ in range(n)]
+        start = time.time()
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+            for chunk in chunks:
+                mat_iter = [[list() for _ in range(n)] for _ in range(n)]
+                # TODO SEE IF NEW GRAPH IS PASSED IN ON EVERY ITERATION!!!!!
+                for result in executor.map(self.build_paths, chunk):
+                    c += 1
+                    print("processed batch", c)
+                    for built_paths in result:
+                        mat[built_paths.o_zone][built_paths.d_zone].extend(built_paths.paths)
+                        mat_iter[built_paths.o_zone][built_paths.d_zone].extend(built_paths.paths)
+                self.graph = recalculate_flow_time(add_passes_count(self.graph, mat_iter))
+                print("Processed chunk...")
+        print("finished in", time.time() - start)
+        return mat, self.graph
