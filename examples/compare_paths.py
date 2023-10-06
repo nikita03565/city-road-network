@@ -26,10 +26,9 @@ def compare_paths(lst1, lst2):
 if __name__ == "__main__":
     data_dir = get_data_subdir("spb")
 
-    with open(os.path.join(data_dir, "paths_by_flow_time_s_1695987799.pkl"), "rb") as f:
+    with open(os.path.join(data_dir, "smarter_paths_by_flow_time_s_1696597874.pkl"), "rb") as f:
         old_paths = pickle.load(f)
-
-    with open(os.path.join(data_dir, "paths_by_flow_time_s_1696270771.pkl"), "rb") as f:
+    with open(os.path.join(data_dir, "smarter_paths_by_flow_time_s_1696599995.pkl"), "rb") as f:
         new_paths = pickle.load(f)
 
     for i, row in enumerate(old_paths):

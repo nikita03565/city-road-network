@@ -1,6 +1,5 @@
 import copy
 import os
-import random
 import time
 from collections.abc import Generator, Iterator
 from concurrent.futures import ProcessPoolExecutor
@@ -131,7 +130,7 @@ class RandomNodesGetter:
 
     @staticmethod
     def get_random_node(graph: nx.MultiDiGraph, zone_id: str):
-        return random.choice(RandomNodesGetter.filter_nodes(graph, zone_id))
+        return np.random.RandomState().choice(RandomNodesGetter.filter_nodes(graph, zone_id))
 
     @staticmethod
     def get_nodes_pair(graph: nx.MultiDiGraph, bp: BatchPaths):
@@ -196,7 +195,7 @@ class NaiveSimulation(BaseSimulation):
         super().__init__(graph, weight)
         self.nodes_getter = RandomNodesGetter()
 
-    def run(self, trip_mat=None, old_paths=None, n=None, max_workers=None):
+    def run(self, trip_mat=None, old_paths=None, n=None, max_workers=None, batch_size=1000):
         if max_workers is None:
             max_workers = os.cpu_count()
 
@@ -207,9 +206,9 @@ class NaiveSimulation(BaseSimulation):
             trip_mat = trip_mat[:n, :n]
 
         if trip_mat is not None:
-            batches = yield_batches(trip_mat)
+            batches = yield_batches(trip_mat, batch_size=batch_size)
         if old_paths is not None:
-            batches = yield_starts_ends(old_paths)
+            batches = yield_starts_ends(old_paths, batch_size=batch_size)
 
         c = 0
         mat = [[list() for _ in range(n)] for _ in range(n)]

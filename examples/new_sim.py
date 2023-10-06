@@ -20,9 +20,9 @@ def run_smarter_simulation(graph, weight, trip_mat=None, old_paths=None, n=None)
     return res
 
 
-def run_naive_simulation(graph, weight, trip_mat=None, old_paths=None, n=None):
+def run_naive_simulation(graph, weight, trip_mat=None, old_paths=None, n=None, batch_size=1000):
     sim = NaiveSimulation(graph, weight)
-    res = sim.run(trip_mat, old_paths, n)
+    res = sim.run(trip_mat, old_paths, n, batch_size=batch_size)
     return res
 
 
@@ -34,7 +34,7 @@ if __name__ == "__main__":
     G = read_graph(os.path.join(data_dir, "nodelist_upd.csv"), os.path.join(data_dir, "edgelist_upd.csv"))
     trip_mat = np.load(os.path.join(data_dir, "trip_mat.npy"))
 
-    with open(os.path.join(data_dir, "paths_by_flow_time_s_1695987799.pkl"), "rb") as f:
+    with open(os.path.join(data_dir, "smarter_paths_by_flow_time_s_1696597874.pkl"), "rb") as f:
         old_paths = pickle.load(f)
 
     zones_df = pd.read_csv(os.path.join(data_dir, "zones_upd.csv"), index_col=0)
@@ -44,17 +44,17 @@ if __name__ == "__main__":
     # running actual simulation
     weight = "flow_time (s)"  # or "length (m)"
 
-    all_paths, new_graph = run_smarter_simulation(G, weight, trip_mat=None, old_paths=old_paths)
+    all_paths, new_graph = run_smarter_simulation(G, weight, old_paths=old_paths)  # n=20, batch_size=100)
     # checking that all paths have been generated
-    # for i in range(len(all_paths)):
-    #     for j in range(len(all_paths)):
-    #         assert len(all_paths[i][j]) == trip_mat[i, j]
+    for i in range(len(all_paths)):
+        for j in range(len(all_paths)):
+            assert len(all_paths[i][j]) == trip_mat[i, j]
 
     # saving map and paths
     ts = int(time.time())
     map = draw_trips_map(new_graph)
     clean_weight = weight.replace("(", "").replace(")", "").replace(" ", "_")
-    filename = f"paths_by_{clean_weight}_{ts}"
+    filename = f"smarter_paths_by_{clean_weight}_{ts}"
     map.save(os.path.join(html_dir, f"{filename}.html"))
     with open(os.path.join(data_dir, f"{filename}.pkl"), "wb") as f:
         pickle.dump(all_paths, f)
