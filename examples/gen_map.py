@@ -1,7 +1,10 @@
+import jinja2
+
+template = """
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/html">
   <head>
-    <title>MAPLIBRE</title>
+    <title>Map of negative factors in Berlin that affect housing comfort</title>
     <script src="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.js"></script>
     <link
       href="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.css"
@@ -65,8 +68,8 @@
             map.addImage("arrow", image);
           }
         );
-        const nodes_data = {{nodes_json_data}};
-        const edges_data = {{edges_json_data}};
+        const nodes_data = {{nodes_data}};
+        const edges_data = {{edges_data}};
 
         map.addSource("nodes", {
           type: "geojson",
@@ -98,8 +101,8 @@
             "line-cap": "round",
           },
           paint: {
-            "line-color": ["get", "fill"],
-            "line-width": 3,
+            "line-color": "#888",
+            "line-width": 8,
           },
         });
 
@@ -143,3 +146,17 @@
     </script>
   </body>
 </html>
+"""
+
+if __name__ == "__main__":
+    with open("index.html") as f:
+        html_template = f.read()
+    with open("geojson_nodes.json") as f:
+        nodes = f.read()
+    with open("geojson_edges.json") as f:
+        edges = f.read()
+    e = jinja2.Environment()
+    t = e.from_string(html_template)
+    new_html = t.render(**{"nodes_json_data": nodes, "edges_json_data": edges})
+    with open("index_filled.html", "w") as f:
+        f.write(new_html)

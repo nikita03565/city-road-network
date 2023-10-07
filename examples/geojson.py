@@ -12,6 +12,8 @@ if __name__ == "__main__":
     html_dir = get_html_subdir(city_name)
     G = read_graph(os.path.join(data_dir, "nodelist_upd.csv"), os.path.join(data_dir, "edgelist_upd.csv"))
 
-    d = export_graph(G)
-    with open("geojson1.json", "w") as f:
-        f.write(json.dumps(d))
+    nodes, edges = export_graph(G)
+    with open("geojson_nodes.json", "w") as f:
+        f.write(json.dumps(nodes))
+    with open("geojson_edges.json", "w") as f:
+        f.write(json.dumps(edges))
