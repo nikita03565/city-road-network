@@ -15,10 +15,6 @@ class PathNT(NamedTuple):
     path: list[int]
     travel_time: float
 
-    # def __repr__(self):
-    #     # TimedPath(path=[1376079375, 3723286353], travel_time=1691.973981419478)
-    #     return f"TimedPath(path=[{self.path[0]}, {self.path[-1]}], travel_time={self.travel_time:.2f})"
-
 
 @dataclass(frozen=True)
 class TimedPath:
