@@ -216,11 +216,11 @@ class NaiveSimulation(BaseSimulation):
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             for result in executor.map(self.build_paths, batches):
                 c += 1
-                print("processed batch", c)
+                logger.info("processed batch", c)
                 for built_paths in result:
                     mat[built_paths.o_zone][built_paths.d_zone].extend(built_paths.paths)
 
-        print("finished in", time.time() - start)
+        logger.info("finished in", time.time() - start)
 
         self.graph = add_passes_count(self.graph, mat)
         return mat, self.graph
@@ -231,7 +231,6 @@ class SmarterSimulation(BaseSimulation):
         total_paths = calc_total_paths(trip_mat, old_paths)
         per_iteration = total_paths // n_recalc
         batch_size = per_iteration // max_workers
-        print(total_paths, per_iteration, batch_size)
         return batch_size
 
     def run(self, trip_mat=None, old_paths=None, n=None, max_workers=None, n_recalc=20):
@@ -258,14 +257,13 @@ class SmarterSimulation(BaseSimulation):
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             for chunk in chunks:
                 mat_iter = [[list() for _ in range(n)] for _ in range(n)]
-                # TODO SEE IF NEW GRAPH IS PASSED IN ON EVERY ITERATION!!!!!
                 for result in executor.map(self.build_paths, chunk):
                     c += 1
-                    print("processed batch", c)
+                    logger.info("processed batch", c)
                     for built_paths in result:
                         mat[built_paths.o_zone][built_paths.d_zone].extend(built_paths.paths)
                         mat_iter[built_paths.o_zone][built_paths.d_zone].extend(built_paths.paths)
                 self.graph = recalculate_flow_time(add_passes_count(self.graph, mat_iter))
-                print("Processed chunk...")
-        print("finished in", time.time() - start)
+                logger.info("Processed chunk...")
+        logger.info("finished in", time.time() - start)
         return mat, self.graph
