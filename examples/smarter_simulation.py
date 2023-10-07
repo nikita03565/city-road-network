@@ -7,11 +7,18 @@ import numpy as np
 import pandas as pd
 from shapely.wkt import loads
 
-from city_road_network.algo.smarter_sim import run_smarter_simulation
+from city_road_network.algo.simulation import SmarterSimulation
 from city_road_network.config import default_crs
 from city_road_network.utils.io import read_graph
 from city_road_network.utils.map import draw_trips_map
 from city_road_network.utils.utils import get_data_subdir, get_html_subdir
+
+
+def run_smarter_simulation(graph, weight, trip_mat=None, old_paths=None, n=None, max_workers=None, n_recalc=20):
+    sim = SmarterSimulation(graph, weight)
+    res = sim.run(trip_mat, old_paths, n, max_workers, n_recalc)
+    return res
+
 
 if __name__ == "__main__":
     # loading data...
@@ -19,11 +26,12 @@ if __name__ == "__main__":
     data_dir = get_data_subdir(city_name)
     html_dir = get_html_subdir(city_name)
 
-    G = read_graph(
-        os.path.join(data_dir, "nodelist_upd.csv"),
-        os.path.join(data_dir, "edgelist_upd.csv"),
-    )
+    G = read_graph(os.path.join(data_dir, "nodelist_upd.csv"), os.path.join(data_dir, "edgelist_upd.csv"))
     trip_mat = np.load(os.path.join(data_dir, "trip_mat.npy"))
+
+    # if you want you can load old paths like this:
+    # with open(os.path.join(data_dir, "smarter_paths_by_flow_time_s_1696597874.pkl"), "rb") as f:
+    #    old_paths = pickle.load(f)
 
     zones_df = pd.read_csv(os.path.join(data_dir, "zones_upd.csv"), index_col=0)
     zones_df["geometry"] = zones_df["geometry"].apply(loads)
@@ -31,7 +39,7 @@ if __name__ == "__main__":
 
     # running actual simulation
     weight = "flow_time (s)"  # or "length (m)"
-    all_paths, new_graph = run_smarter_simulation(G, trip_mat, weight=weight)
+    all_paths, new_graph = run_smarter_simulation(G, weight, trip_mat)
 
     # checking that all paths have been generated
     for i in range(len(all_paths)):

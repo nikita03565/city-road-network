@@ -1,9 +1,14 @@
 import copy
 import random
+from dataclasses import dataclass
 from math import exp
 from typing import NamedTuple
 
 import networkx as nx
+
+from city_road_network.utils.utils import get_logger
+
+logger = get_logger(__name__)
 
 
 class PathNT(NamedTuple):
@@ -11,13 +16,19 @@ class PathNT(NamedTuple):
     travel_time: float
 
 
-def yeild_zone_pairs(n: int, *rest):
+@dataclass(frozen=True)
+class TimedPath:
+    path: list[int]
+    travel_time: float
+
+
+def yield_zone_pairs(n: int, *rest):
     for i in range(n):
         for j in range(n):
             yield i, j, *rest
 
 
-def add_passes_count(graph: nx.MultiDiGraph, trip_mat: list[list[list[PathNT]]]):
+def add_passes_count(graph: nx.MultiDiGraph, trip_mat: list[list[list[TimedPath]]]):
     g = copy.deepcopy(graph)
     for i in range(len(trip_mat)):
         for j in range(len(trip_mat)):
@@ -64,7 +75,7 @@ def get_nodes_pair(graph: nx.MultiDiGraph, o_zone: int, d_zone: int, path_starts
 
 def build_paths(
     graph: nx.MultiDiGraph, o_zone: int, d_zone: int, count: int, weight: str, path_starts_ends, max_iter: int = 100_000
-) -> list[PathNT]:
+) -> list[TimedPath]:
     paths = []
     i = 0
     while len(paths) != count:
@@ -76,7 +87,7 @@ def build_paths(
             path = None
 
         if path and path_cost:
-            paths.append(PathNT(path, path_cost))
+            paths.append(TimedPath(path, path_cost))
 
         i += 1
         if i > max_iter:
