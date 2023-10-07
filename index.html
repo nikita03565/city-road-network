@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/html">
+  <head>
+    <title>Map of negative factors in Berlin that affect housing comfort</title>
+    <script src="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.js"></script>
+    <link
+      href="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.css"
+      rel="stylesheet"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+    <style>
+      #map-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      #map {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="map-container">
+      <!-- <pre id="info"></pre> -->
+      <div id="map"></div>
+    </div>
+    <script>
+      // let osm_reason;
+
+      // fetch('/berlin-factors.json.gz')
+      // .then(response => {
+      //     if (!response.ok) {
+      //         throw new Error('no reason details loaded');
+      //     }
+      //     return response.arrayBuffer();
+      // })
+      // .then(data => {
+      //     osm_reason = JSON.parse(pako.inflate(new Uint8Array(data), { to: 'string' }));
+      // })
+      // .catch(error => {
+      //     console.error('Error:', error);
+      // });
+
+      // function displayInfo(selectedFeature) {
+      //     if(selectedFeature.properties.fill=='#00ff00') return;
+
+      //    const h3Index = selectedFeature.properties.h3;
+
+      //    var issues = '<div style="height: 200px; overflow-y: auto;"><table><thead><tr><th></th></tr></thead><tbody><tr><td>'+
+      //                     osm_reason[h3Index].map(link => '<a target = "blank" href="https://www.openstreetmap.org/' + link+
+      //                     '">'+link+'</a>').join('</td></tr><tr><td>')+'</td></tr></tbody></table></div>';
+
+      //     var popup = new maplibregl.Popup()
+      //     .setLngLat(selectedFeature.geometry.coordinates[0][0])
+      //     .setHTML('<h3>count ' + selectedFeature.properties.count +
+      //                 '<br/>reason '+ selectedFeature.properties.reason +
+      //                 '<br/>'+issues+
+      //               '</h3>')
+      //     .addTo(map);
+      // }
+
+      const style = {
+        version: 8,
+        sources: {
+          osm: {
+            type: "raster",
+            tiles: ["https://a.tile.openstreetmap.org/{z}/{x}/{y}.png"],
+            tileSize: 256,
+            attribution: "&copy; OpenStreetMap Contributors",
+            maxzoom: 19,
+          },
+        },
+        layers: [
+          {
+            id: "osm",
+            type: "raster",
+            source: "osm",
+          },
+        ],
+      };
+
+      var map = new maplibregl.Map({
+        container: "map",
+        style: style,
+        // center: [30.3, 59.95],
+        center: [-122.486052, 37.830348],
+        zoom: 10,
+      });
+
+      map.on("load", function () {
+        map.loadImage(
+          "https://cdn3.iconfinder.com/data/icons/faticons/32/arrow-up-01-512.png",
+          (error, image) => {
+            if (error) throw error;
+            map.addImage("arrow", image);
+          }
+        );
+        const geojson_data = {
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              geometry: {
+                type: "Point",
+                coordinates: [30.3, 59.95],
+                // [
+                //     59.895094,
+                //     30.3314215
+                // ]
+              },
+              properties: {
+                id: 219808,
+                street_count: 3,
+                lat: 59.895094,
+                lon: 30.3314215,
+                zone: 6,
+                fill: "#fc0303",
+                // "fill-opacity":0.5
+              },
+            },
+            {
+              type: "Feature",
+              geometry: {
+                type: "Point",
+                coordinates: [59.95, 30.3],
+              },
+              properties: {
+                id: 2198081,
+                street_count: 3,
+                lat: 59.895094,
+                lon: 30.3314215,
+                zone: 6,
+                fill: "#fc0303",
+                // "fill-opacity":0.5
+              },
+            },
+          ],
+        };
+
+        map.addSource("route", {
+          type: "geojson",
+          data: {
+            type: "Feature",
+            properties: {},
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                [-122.48369693756104, 37.83381888486939],
+                [-122.48348236083984, 37.83317489144141],
+                [-122.48339653015138, 37.83270036637107],
+                [-122.48356819152832, 37.832056363179625],
+                [-122.48404026031496, 37.83114119107971],
+                [-122.48404026031496, 37.83049717427869],
+                [-122.48348236083984, 37.829920943955045],
+                [-122.48356819152832, 37.82954808664175],
+                [-122.48507022857666, 37.82944639795659],
+                [-122.48610019683838, 37.82880236636284],
+                [-122.48695850372314, 37.82931081282506],
+                [-122.48700141906738, 37.83080223556934],
+                [-122.48751640319824, 37.83168351665737],
+                [-122.48803138732912, 37.832158048267786],
+                [-122.48888969421387, 37.83297152392784],
+                [-122.48987674713133, 37.83263257682617],
+                [-122.49043464660643, 37.832937629287755],
+                [-122.49125003814696, 37.832429207817725],
+                [-122.49163627624512, 37.832564787218985],
+                [-122.49223709106445, 37.83337825839438],
+                [-122.49378204345702, 37.83368330777276],
+              ],
+            },
+          },
+        });
+
+        map.addSource("geojson", {
+          type: "geojson",
+          data: geojson_data,
+        });
+
+        map.addLayer({
+          id: "geojson-layer",
+          type: "circle",
+          source: "geojson",
+          paint: {
+            "circle-radius": 4,
+            "circle-color": "red",
+            "circle-opacity": 1,
+          },
+        });
+
+        map.addLayer({
+          id: "route",
+          type: "line",
+          source: "route",
+          layout: {
+            "line-join": "round",
+            "line-cap": "round",
+          },
+          paint: {
+            "line-color": "#888",
+            "line-width": 8,
+          },
+        });
+
+        map.addLayer({
+          id: "directions",
+          type: "symbol",
+          source: "route",
+          paint: {},
+          layout: {
+            "symbol-placement": "line",
+            "icon-image": "arrow",
+            "icon-rotate": 90,
+            "icon-rotation-alignment": "map",
+            "icon-allow-overlap": true,
+            "icon-ignore-placement": true,
+            "icon-size": 0.05,
+          },
+        });
+        map.on("click", "geojson-layer", function (e) {
+          var selectedFeature = e.features[0];
+          displayInfo(selectedFeature);
+        });
+
+        map.on("mouseenter", "geojson-layer", function () {
+          map.getCanvas().style.cursor = "pointer";
+        });
+
+        map.on("mouseleave", "geojson-layer", function () {
+          map.getCanvas().style.cursor = "";
+        });
+        map.on("mousemove", (e) => {
+          document.getElementById("info").innerHTML =
+            // e.point is the x, y coordinates of the mousemove event relative
+            // to the top-left corner of the map
+            `${JSON.stringify(e.point)}<br />${
+              // e.lngLat is the longitude, latitude geographical position of the event
+              JSON.stringify(e.lngLat.wrap())
+            }`;
+        });
+      });
+    </script>
+  </body>
+</html>
