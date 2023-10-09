@@ -15,7 +15,9 @@ from city_road_network.config import (
     zones_color_map,
 )
 from city_road_network.utils.io import get_edgelist_from_graph, get_nodelist_from_graph
-from city_road_network.utils.utils import get_geojson_subdir
+from city_road_network.utils.utils import get_geojson_subdir, get_logger
+
+logger = get_logger(__name__)
 
 
 def filter_empty(attrs: dict) -> dict:
@@ -45,6 +47,7 @@ def export_nodes(
                 "properties": {**attrs, "color": "blue"},
             }
         )
+        break
 
     if save:
         name = filename
@@ -52,8 +55,10 @@ def export_nodes(
             ts = int(time.time())
             name = f"nodes_{ts}.json"
         json_dir = get_geojson_subdir(city_name)
-        with open(os.path.join(json_dir, name), "w") as f:
+        full_name = os.path.join(json_dir, name)
+        with open(full_name, "w") as f:
             f.write(json.dumps(nodes))
+        logger.info("Saved file %s", os.path.abspath(full_name))
     return nodes
 
 
@@ -93,6 +98,7 @@ def export_edges(
                 "properties": {**attrs, "color": color},
             }
         )
+        break
 
     if save:
         name = filename
@@ -100,8 +106,10 @@ def export_edges(
             ts = int(time.time())
             name = f"edges_{ts}.json"
         json_dir = get_geojson_subdir(city_name)
-        with open(os.path.join(json_dir, name), "w") as f:
+        full_name = os.path.join(json_dir, name)
+        with open(full_name, "w") as f:
             f.write(json.dumps(edges))
+        logger.info("Saved file %s", os.path.abspath(full_name))
     return edges
 
 
@@ -129,14 +137,17 @@ def export_zones(
                 "properties": {**attrs, "color": color},
             }
         )
+        break
     if save:
         name = filename
         if name is None:
             ts = int(time.time())
             name = f"zones_{ts}.json"
         json_dir = get_geojson_subdir(city_name)
-        with open(os.path.join(json_dir, name), "w") as f:
+        full_name = os.path.join(json_dir, name)
+        with open(full_name, "w") as f:
             f.write(json.dumps(zones))
+        logger.info("Saved file %s", os.path.abspath(full_name))
     return zones
 
 
@@ -170,14 +181,17 @@ def export_population(
                 "properties": {**attrs, "color": _get_pop_color(pop["value"])},
             }
         )
+        break
     if save:
         name = filename
         if name is None:
             ts = int(time.time())
             name = f"pop_{ts}.json"
         json_dir = get_geojson_subdir(city_name)
-        with open(os.path.join(json_dir, name), "w") as f:
+        full_name = os.path.join(json_dir, name)
+        with open(full_name, "w") as f:
             f.write(json.dumps(pop_dict))
+        logger.info("Saved file %s", os.path.abspath(full_name))
     return pop_dict
 
 
@@ -197,17 +211,20 @@ def export_poi(
             {
                 "type": "Feature",
                 "geometry": geo_j["features"][0]["geometry"],
-                "properties": {**attrs},
+                "properties": {**attrs, "color": "#32a852"},
             }
         )
+        break
     if save:
         name = filename
         if name is None:
             ts = int(time.time())
             name = f"poi_{ts}.json"
         json_dir = get_geojson_subdir(city_name)
-        with open(os.path.join(json_dir, name), "w") as f:
+        full_name = os.path.join(json_dir, name)
+        with open(full_name, "w") as f:
             f.write(json.dumps(poi_dict))
+        logger.info("Saved file %s", os.path.abspath(full_name))
     return poi_dict
 
 
