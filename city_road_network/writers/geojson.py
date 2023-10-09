@@ -47,7 +47,6 @@ def export_nodes(
                 "properties": {**attrs, "color": "blue"},
             }
         )
-        break
 
     if save:
         name = filename
@@ -98,7 +97,6 @@ def export_edges(
                 "properties": {**attrs, "color": color},
             }
         )
-        break
 
     if save:
         name = filename
@@ -137,7 +135,7 @@ def export_zones(
                 "properties": {**attrs, "color": color},
             }
         )
-        break
+
     if save:
         name = filename
         if name is None:
@@ -181,7 +179,7 @@ def export_population(
                 "properties": {**attrs, "color": _get_pop_color(pop["value"])},
             }
         )
-        break
+
     if save:
         name = filename
         if name is None:
@@ -214,7 +212,7 @@ def export_poi(
                 "properties": {**attrs, "color": "#32a852"},
             }
         )
-        break
+
     if save:
         name = filename
         if name is None:

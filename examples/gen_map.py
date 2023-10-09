@@ -118,18 +118,17 @@ template = """
         const popData = {{pop_data}};
         const poiData = {{poi_data}};
 
-        map.addSource("nodes", {
+        map.addSource("zones", {
           type: "geojson",
-          data: nodesData,
+          data: zonesData,
         });
         map.addLayer({
-          id: "nodes-layer",
-          type: "circle",
-          source: "nodes",
+          id: "zones-layer",
+          type: "fill",
+          source: "zones",
           paint: {
-            "circle-radius": 4,
-            "circle-color": ["get", "color"],
-            "circle-opacity": 1,
+            "fill-color": ["get", "color"],
+            "fill-opacity": 0.5,
           },
         });
 
@@ -160,20 +159,6 @@ template = """
             "circle-radius": 4,
             "circle-color": ["get", "color"],
             "circle-opacity": 1,
-          },
-        });
-
-        map.addSource("zones", {
-          type: "geojson",
-          data: zonesData,
-        });
-        map.addLayer({
-          id: "zones-layer",
-          type: "fill",
-          source: "zones",
-          paint: {
-            "fill-color": ["get", "color"],
-            "fill-opacity": 0.5,
           },
         });
 
@@ -208,6 +193,21 @@ template = """
             "icon-allow-overlap": true,
             "icon-ignore-placement": true,
             "icon-size": 0.05,
+          },
+        });
+
+        map.addSource("nodes", {
+          type: "geojson",
+          data: nodesData,
+        });
+        map.addLayer({
+          id: "nodes-layer",
+          type: "circle",
+          source: "nodes",
+          paint: {
+            "circle-radius": 4,
+            "circle-color": ["get", "color"],
+            "circle-opacity": 1,
           },
         });
 
@@ -276,15 +276,15 @@ def generate_map(
 if __name__ == "__main__":
     json_dir = get_geojson_subdir("spb")
 
-    with open(os.path.join(json_dir, "nodes_1696864879.json")) as f:
+    with open(os.path.join(json_dir, "nodes_1696867060.json")) as f:
         nodes = f.read()
-    with open(os.path.join(json_dir, "edges_1696864879.json")) as f:
+    with open(os.path.join(json_dir, "edges_1696867095.json")) as f:
         edges = f.read()
-    with open(os.path.join(json_dir, "zones_1696864879.json")) as f:
+    with open(os.path.join(json_dir, "zones_1696867096.json")) as f:
         zones = f.read()
-    with open(os.path.join(json_dir, "pop_1696864879.json")) as f:
+    with open(os.path.join(json_dir, "pop_1696867331.json")) as f:
         pop = f.read()
-    with open(os.path.join(json_dir, "poi_1696864879.json")) as f:
+    with open(os.path.join(json_dir, "poi_1696867390.json")) as f:
         poi = f.read()
 
     generate_map(nodes_data=nodes, save=True, city_name="spb")
