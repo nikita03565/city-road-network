@@ -158,6 +158,7 @@ cache/
 /data/
 images/
 htmls/
+geojsons/
 nhts_survey/
 russtat_survey/
 plots/

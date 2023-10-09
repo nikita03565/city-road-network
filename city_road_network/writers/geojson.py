@@ -1,64 +1,77 @@
+import json
+import os
+import time
 from ast import literal_eval
 
 import networkx as nx
+import pandas as pd
 
-from city_road_network.config import highway_color_mapping
+from city_road_network.config import (
+    default_edge_export_keys,
+    default_node_export_keys,
+    highway_color_mapping,
+)
+from city_road_network.utils.io import get_edgelist_from_graph, get_nodelist_from_graph
+from city_road_network.utils.utils import get_geojson_subdir
 
 
-def export_graph(
-    graph: nx.DiGraph,
-    node_popup_keys: list[str] | None = None,
-    way_popup_keys: list[str] | None = None,
+def filter_empty(attrs: dict) -> dict:
+    return {k: v for k, v in attrs.items() if v is not None}
+
+
+def filter_keys(attrs: dict, allowed_keys: list[str]) -> dict:
+    return {k: v for k, v in attrs.items() if k in allowed_keys}
+
+
+def export_nodes(
+    nodes_df: pd.DataFrame,
+    keys: list[str],
     save: bool = False,
     filename: str | None = None,
     city_name: str | None = None,
-):
-    """Draws graph on map"""
-    # node_data = next(iter(graph.nodes(data=True)))[1]
-    # location = node_data["lat"], node_data["lon"]
-
-    if node_popup_keys is None:
-        node_popup_keys = ["id", "highway", "zone"]
-    if way_popup_keys is None:
-        way_popup_keys = [
-            "start_node",
-            "end_node",
-            "osmid",
-            "highway",
-            "surface",
-            "speed (km/h)",
-            "lanes",
-            "oneway",
-            "length (m)",
-            "name",
-            "capacity (veh/h)",
-            "free_flow_time (h)",
-        ]
-    opacity = 0.5
+) -> dict:
     nodes = {"type": "FeatureCollection", "features": []}
-    for idx, node_data in graph.nodes(data=True):
-        node_data["id"] = idx
 
-        # popup = "<br/>".join([f"{key}: {node_data[key]}" for key in node_popup_keys if key in node_data])
+    for _, node in nodes_df.iterrows():
+        all_attrs = node.to_dict()
+        attrs = filter_empty(filter_keys(all_attrs, keys))
         nodes["features"].append(
             {
                 "type": "Feature",
-                "geometry": {"type": "Point", "coordinates": [node_data["lon"], node_data["lat"]]},
-                "properties": {**node_data, "fill": "blue", "fill-opacity": opacity},
+                "geometry": {"type": "Point", "coordinates": [node["lon"], node["lat"]]},
+                "properties": {**attrs, "color": "blue"},
             }
         )
 
-        # map.add_child(
-        #     folium.Circle(location=(node_data["lat"], node_data["lon"]), fill=True, radius=3, color="blue", popup=popup)
-        # )
+    if save:
+        name = filename
+        if name is None:
+            ts = int(time.time())
+            name = f"nodes_{ts}.json"
+        json_dir = get_geojson_subdir(city_name)
+        with open(os.path.join(json_dir, name), "w") as f:
+            f.write(json.dumps(nodes))
+    return nodes
+
+
+def export_edges(
+    edges_df: pd.DataFrame,
+    nodes_df: pd.DataFrame,
+    keys: list[str],
+    save: bool = False,
+    filename: str | None = None,
+    city_name: str | None = None,
+) -> dict:
     edges = {"type": "FeatureCollection", "features": []}
-    for start_id, end_id, edge_data in graph.edges(data=True):
-        start_node = graph.nodes[start_id]
-        end_node = graph.nodes[end_id]
 
-        # popup = "<br/>".join([f"{key}: {edge_data[key]}" for key in way_popup_keys if key in edge_data])
+    for _, edge in edges_df.iterrows():
+        all_attrs = edge.to_dict()
+        attrs = filter_empty(filter_keys(all_attrs, keys))
 
-        highway_raw = edge_data["highway"]
+        start_node = nodes_df[nodes_df["id"] == edge["start_node"]].iloc[0]
+        end_node = nodes_df[nodes_df["id"] == edge["end_node"]].iloc[0]
+
+        highway_raw = edge["highway"]
         if isinstance(highway_raw, list):
             highway = highway_raw[0]
         else:
@@ -74,21 +87,56 @@ def export_graph(
                         [end_node["lon"], end_node["lat"]],
                     ],
                 },
-                "properties": {**edge_data, "fill": color, "fill-opacity": opacity},
+                "properties": {**attrs, "color": color},
             }
         )
 
-        # map.add_child(
-        #     folium.PolyLine(
-        #         locations=[
-        #             [start_node["lat"], start_node["lon"]],
-        #             [end_node["lat"], end_node["lon"]],
-        #         ],
-        #         popup=popup,
-        #         opacity=0.7,
-        #         color=color,
-        #     )
-        # )
-    # if save:
-    #     save_map(map, filename=filename, city_name=city_name)
-    return nodes, edges
+    if save:
+        name = filename
+        if name is None:
+            ts = int(time.time())
+            name = f"edges_{ts}.json"
+        json_dir = get_geojson_subdir(city_name)
+        with open(os.path.join(json_dir, name), "w") as f:
+            f.write(json.dumps(edges))
+    return edges
+
+
+def export_zones(
+    zones_df: pd.DataFrame,
+    keys: list[str],
+    save: bool = False,
+    filename: str | None = None,
+    city_name: str | None = None,
+) -> dict:
+    pass
+
+
+def export_population(
+    pop_df: pd.DataFrame, keys: list[str], save: bool = False, filename: str | None = None, city_name: str | None = None
+) -> dict:
+    pass
+
+
+def export_graph(
+    graph: nx.DiGraph,
+    node_export_keys: list[str] | None = None,
+    edge_export_keys: list[str] | None = None,
+    save: bool = False,
+    nodes_filename: str | None = None,
+    edges_filename: str | None = None,
+    city_name: str | None = None,
+):
+    if node_export_keys is None:
+        node_export_keys = default_node_export_keys
+    if edge_export_keys is None:
+        edge_export_keys = default_edge_export_keys
+
+    nodes_df = get_nodelist_from_graph(graph)
+    edges_df = get_edgelist_from_graph(graph)
+    # TODO BUILD NAME WITH SAME TS HERE??
+    nodes_dict = export_nodes(nodes_df, node_export_keys, save=save, city_name=city_name, filename=nodes_filename)
+    edges_dict = export_edges(
+        edges_df, nodes_df, edge_export_keys, save=save, city_name=city_name, filename=edges_filename
+    )
+    return nodes_dict, edges_dict

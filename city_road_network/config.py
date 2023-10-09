@@ -11,6 +11,7 @@ CACHE_DIR = "cache"
 DATA_DIR = "data"
 PLOTS_DIR = "plots"
 HTML_DIR = "htmls"
+GEOJSON_DIR = "geojsons"
 
 ghsl_shape_url = "https://ghsl.jrc.ec.europa.eu/download/GHSL_data_54009_shapefile.zip"
 ghsl_tile_url_template = "https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/GHSL/GHS_POP_GLOBE_R2022A/GHS_POP_E2020_GLOBE_R2022A_54009_100/V1-0/tiles/GHS_POP_E2020_GLOBE_R2022A_54009_100_V1_0_{tile_id}.zip"
@@ -27,6 +28,22 @@ lane_capacity_mapping = {
     6: 2300,  # per lane
     "6+": 2300,  # per lane
 }
+
+default_node_export_keys = ["id", "highway", "zone"]
+default_edge_export_keys = [
+    "start_node",
+    "end_node",
+    "osmid",
+    "highway",
+    "surface",
+    "speed (km/h)",
+    "lanes",
+    "oneway",
+    "length (m)",
+    "name",
+    "capacity (veh/h)",
+    "free_flow_time (h)",
+]
 
 
 highway_color_mapping = {
@@ -107,7 +124,6 @@ whitelist_node_attrs = {
     "entrance",
     "shop",
     "landuse",
-    ":LABEL",  # generated field
 }
 
 whitelist_way_attrs = {

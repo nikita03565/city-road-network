@@ -9,6 +9,7 @@ from shapely import Point
 from city_road_network.config import (
     CACHE_DIR,
     DATA_DIR,
+    GEOJSON_DIR,
     HTML_DIR,
     PLOTS_DIR,
     amenity_rates,
@@ -17,9 +18,6 @@ from city_road_network.config import (
     landuse_rates,
     shop_rates,
     speed_map,
-    whitelist_node_attrs,
-    whitelist_relation_attrs,
-    whitelist_way_attrs,
 )
 
 mollweide = "ESRI:54009"
@@ -63,19 +61,6 @@ def calc_poi_attraction(poi):
     return 0
 
 
-def get_csv_head(items):
-    head = [""]
-    head_set = {""}
-
-    for item in items:
-        for key in item.keys():
-            if key in head_set:
-                continue
-            head.append(key)
-            head_set.add(key)
-    return head
-
-
 def get_subdir(dir_name, city_name=None):
     if city_name is None:
         logger.warning("City name is not provided. Using default name '%s'", default_city_name)
@@ -87,6 +72,10 @@ def get_subdir(dir_name, city_name=None):
 
 def get_html_subdir(city_name=None):
     return get_subdir(HTML_DIR, city_name)
+
+
+def get_geojson_subdir(city_name=None):
+    return get_subdir(GEOJSON_DIR, city_name)
 
 
 def get_data_subdir(city_name=None):
@@ -138,22 +127,6 @@ def get_max_speed(possible_speed):
             logger.warning("Found unknown speed %s", possible_speed)
             return None
         return speed_map[possible_speed]
-
-
-def get_attrs_from_tags(tags):
-    return {tag.attrib["k"]: tag.attrib["v"] for tag in tags}
-
-
-def get_filtered_node_attrs(attrs):
-    return {key: value for key, value in attrs.items() if key in whitelist_node_attrs}
-
-
-def get_filtered_way_attrs(attrs):
-    return {key: value for key, value in attrs.items() if key in whitelist_way_attrs}
-
-
-def get_filtered_relation_attrs(attrs):
-    return {key: value for key, value in attrs.items() if key in whitelist_relation_attrs}
 
 
 def get_distance(u, v):  # km

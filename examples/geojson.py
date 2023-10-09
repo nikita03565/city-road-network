@@ -1,4 +1,3 @@
-import json
 import os
 
 from city_road_network.utils.io import read_graph
@@ -12,8 +11,4 @@ if __name__ == "__main__":
     html_dir = get_html_subdir(city_name)
     G = read_graph(os.path.join(data_dir, "nodelist_upd.csv"), os.path.join(data_dir, "edgelist_upd.csv"))
 
-    nodes, edges = export_graph(G)
-    with open("geojson_nodes.json", "w") as f:
-        f.write(json.dumps(nodes))
-    with open("geojson_edges.json", "w") as f:
-        f.write(json.dumps(edges))
+    nodes, edges = export_graph(G, save=True, city_name=city_name)
