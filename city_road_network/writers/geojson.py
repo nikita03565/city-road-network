@@ -3,13 +3,16 @@ import os
 import time
 from ast import literal_eval
 
+import geopandas as gpd
 import networkx as nx
 import pandas as pd
+from shapely import wkt
 
 from city_road_network.config import (
     default_edge_export_keys,
     default_node_export_keys,
     highway_color_mapping,
+    zones_color_map,
 )
 from city_road_network.utils.io import get_edgelist_from_graph, get_nodelist_from_graph
 from city_road_network.utils.utils import get_geojson_subdir
@@ -104,18 +107,108 @@ def export_edges(
 
 def export_zones(
     zones_df: pd.DataFrame,
-    keys: list[str],
     save: bool = False,
     filename: str | None = None,
     city_name: str | None = None,
 ) -> dict:
-    pass
+    zones = {"type": "FeatureCollection", "features": []}
+    for idx, zone in zones_df.iterrows():
+        all_attrs = zone.to_dict()
+        all_attrs["id"] = idx
+        attrs = filter_empty(all_attrs)
+        color = zones_color_map[all_attrs["id"]]
+        geometry = wkt.loads(zone["geometry"])
+
+        sim_geo = gpd.GeoSeries(geometry)
+        geo_j = json.loads(sim_geo.to_json())
+        assert len(geo_j["features"]) == 1
+        zones["features"].append(
+            {
+                "type": "Feature",
+                "geometry": geo_j["features"][0]["geometry"],
+                "properties": {**attrs, "color": color},
+            }
+        )
+    if save:
+        name = filename
+        if name is None:
+            ts = int(time.time())
+            name = f"zones_{ts}.json"
+        json_dir = get_geojson_subdir(city_name)
+        with open(os.path.join(json_dir, name), "w") as f:
+            f.write(json.dumps(zones))
+    return zones
+
+
+def rgb_to_hex(rgb):
+    return "#%02x%02x%02x" % rgb
+
+
+def _get_pop_color(value: float, vmax: int = 600):
+    ratio = min(value / vmax, 1)
+    b_g = int(255 * (1 - ratio))
+    b_g = min(b_g, 200)
+    return rgb_to_hex((255, b_g, b_g))
 
 
 def export_population(
-    pop_df: pd.DataFrame, keys: list[str], save: bool = False, filename: str | None = None, city_name: str | None = None
+    pop_df: pd.DataFrame, save: bool = False, filename: str | None = None, city_name: str | None = None
 ) -> dict:
-    pass
+    pop_dict = {"type": "FeatureCollection", "features": []}
+    for idx, pop in pop_df.iterrows():
+        all_attrs = pop.to_dict()
+        all_attrs["id"] = idx
+        attrs = filter_empty(all_attrs)
+        geometry = wkt.loads(pop["geometry"])
+        sim_geo = gpd.GeoSeries(geometry)
+        geo_j = json.loads(sim_geo.to_json())
+        assert len(geo_j["features"]) == 1
+        pop_dict["features"].append(
+            {
+                "type": "Feature",
+                "geometry": geo_j["features"][0]["geometry"],
+                "properties": {**attrs, "color": _get_pop_color(pop["value"])},
+            }
+        )
+    if save:
+        name = filename
+        if name is None:
+            ts = int(time.time())
+            name = f"pop_{ts}.json"
+        json_dir = get_geojson_subdir(city_name)
+        with open(os.path.join(json_dir, name), "w") as f:
+            f.write(json.dumps(pop_dict))
+    return pop_dict
+
+
+def export_poi(
+    poi_df: pd.DataFrame, save: bool = False, filename: str | None = None, city_name: str | None = None
+) -> dict:
+    poi_dict = {"type": "FeatureCollection", "features": []}
+    for idx, pop in poi_df.iterrows():
+        all_attrs = pop.to_dict()
+        all_attrs["id"] = idx
+        attrs = filter_empty(all_attrs)
+        geometry = wkt.loads(pop["geometry"])
+        sim_geo = gpd.GeoSeries(geometry)
+        geo_j = json.loads(sim_geo.to_json())
+        assert len(geo_j["features"]) == 1
+        poi_dict["features"].append(
+            {
+                "type": "Feature",
+                "geometry": geo_j["features"][0]["geometry"],
+                "properties": {**attrs},
+            }
+        )
+    if save:
+        name = filename
+        if name is None:
+            ts = int(time.time())
+            name = f"poi_{ts}.json"
+        json_dir = get_geojson_subdir(city_name)
+        with open(os.path.join(json_dir, name), "w") as f:
+            f.write(json.dumps(poi_dict))
+    return poi_dict
 
 
 def export_graph(
