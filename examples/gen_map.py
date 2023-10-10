@@ -33,11 +33,53 @@ template = """
         max-width: 400px;
         font: 12px/20px "Helvetica Neue", Arial, Helvetica, sans-serif;
       }
+      #menu {
+        background: #fff;
+        position: absolute;
+        z-index: 1;
+        top: 10px;
+        right: 10px;
+        border-radius: 3px;
+        width: 120px;
+        border: 1px solid rgba(0, 0, 0, 0.4);
+        font-family: "Open Sans", sans-serif;
+      }
+
+      #menu a {
+        font-size: 13px;
+        color: #404040;
+        display: block;
+        margin: 0;
+        padding: 0;
+        padding: 10px;
+        text-decoration: none;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.25);
+        text-align: center;
+      }
+
+      #menu a:last-child {
+        border: none;
+      }
+
+      #menu a:hover {
+        background-color: #f8f8f8;
+        color: #404040;
+      }
+
+      #menu a.active {
+        background-color: #3887be;
+        color: #ffffff;
+      }
+
+      #menu a.active:hover {
+        background: #3074a4;
+      }
     </style>
   </head>
 
   <body>
     <div id="map-container">
+      <nav id="menu"></nav>
       <div id="map"></div>
     </div>
     <script>
@@ -102,7 +144,7 @@ template = """
         center: [30.3, 59.95],
         zoom: 10,
       });
-
+      let presentLayers = [];
       map.on("load", function () {
         map.loadImage(
           "https://cdn3.iconfinder.com/data/icons/faticons/32/arrow-up-01-512.png",
@@ -118,107 +160,114 @@ template = """
         const popData = {{pop_data}};
         const poiData = {{poi_data}};
 
-        map.addSource("zones", {
-          type: "geojson",
-          data: zonesData,
-        });
-        map.addLayer({
-          id: "zones-layer",
-          type: "fill",
-          source: "zones",
-          paint: {
-            "fill-color": ["get", "color"],
-            "fill-opacity": 0.5,
-          },
-        });
+        if (zonesData != null) {
+          map.addSource("zones", {
+            type: "geojson",
+            data: zonesData,
+          });
+          map.addLayer({
+            id: "zones-layer",
+            type: "fill",
+            source: "zones",
+            paint: {
+              "fill-color": ["get", "color"],
+              "fill-opacity": 0.5,
+            },
+          });
+          presentLayers.push("zones-layer");
+        }
+        if (poiData != null) {
+          map.addSource("poi", {
+            type: "geojson",
+            data: poiData,
+          });
+          map.addLayer({
+            id: "poi-layer",
+            type: "circle",
+            source: "poi",
+            paint: {
+              "circle-radius": 4,
+              "circle-color": ["get", "color"],
+              "circle-opacity": 1,
+            },
+          });
+          presentLayers.push("poi-layer");
+        }
 
-        map.addSource("poi", {
-          type: "geojson",
-          data: poiData,
-        });
-        map.addLayer({
-          id: "poi-layer",
-          type: "circle",
-          source: "poi",
-          paint: {
-            "circle-radius": 4,
-            "circle-color": ["get", "color"],
-            "circle-opacity": 1,
-          },
-        });
+        if (popData != null) {
+          map.addSource("pop", {
+            type: "geojson",
+            data: popData,
+          });
+          map.addLayer({
+            id: "pop-layer",
+            type: "circle",
+            source: "pop",
+            paint: {
+              "circle-radius": 4,
+              "circle-color": ["get", "color"],
+              "circle-opacity": 1,
+            },
+          });
+          presentLayers.push("pop-layer");
+        }
 
-        map.addSource("pop", {
-          type: "geojson",
-          data: popData,
-        });
-        map.addLayer({
-          id: "pop-layer",
-          type: "circle",
-          source: "pop",
-          paint: {
-            "circle-radius": 4,
-            "circle-color": ["get", "color"],
-            "circle-opacity": 1,
-          },
-        });
+        if (edgesData != null) {
+          map.addSource("edges", {
+            type: "geojson",
+            data: edgesData,
+          });
+          map.addLayer({
+            id: "edges-layer",
+            type: "line",
+            source: "edges",
+            layout: {
+              "line-join": "round",
+              "line-cap": "round",
+            },
+            paint: {
+              "line-color": ["get", "color"],
+              "line-width": 3,
+            },
+          });
 
-        map.addSource("edges", {
-          type: "geojson",
-          data: edgesData,
-        });
-        map.addLayer({
-          id: "edges-layer",
-          type: "line",
-          source: "edges",
-          layout: {
-            "line-join": "round",
-            "line-cap": "round",
-          },
-          paint: {
-            "line-color": ["get", "color"],
-            "line-width": 3,
-          },
-        });
+          map.addLayer({
+            id: "directions-layer",
+            type: "symbol",
+            source: "edges",
+            paint: {},
+            layout: {
+              "symbol-placement": "line",
+              "icon-image": "arrow",
+              "icon-rotate": 90,
+              "icon-rotation-alignment": "map",
+              "icon-allow-overlap": true,
+              "icon-ignore-placement": true,
+              "icon-size": 0.05,
+            },
+          });
+          presentLayers.push("edges-layer");
+          presentLayers.push("directions-layer");
+        }
+        if (nodesData != null) {
+          map.addSource("nodes", {
+            type: "geojson",
+            data: nodesData,
+          });
+          map.addLayer({
+            id: "nodes-layer",
+            type: "circle",
+            source: "nodes",
+            paint: {
+              "circle-radius": 4,
+              "circle-color": ["get", "color"],
+              "circle-opacity": 1,
+            },
+          });
+          presentLayers.push("nodes-layer");
+        }
 
-        map.addLayer({
-          id: "directions-layer",
-          type: "symbol",
-          source: "edges",
-          paint: {},
-          layout: {
-            "symbol-placement": "line",
-            "icon-image": "arrow",
-            "icon-rotate": 90,
-            "icon-rotation-alignment": "map",
-            "icon-allow-overlap": true,
-            "icon-ignore-placement": true,
-            "icon-size": 0.05,
-          },
-        });
-
-        map.addSource("nodes", {
-          type: "geojson",
-          data: nodesData,
-        });
-        map.addLayer({
-          id: "nodes-layer",
-          type: "circle",
-          source: "nodes",
-          paint: {
-            "circle-radius": 4,
-            "circle-color": ["get", "color"],
-            "circle-opacity": 1,
-          },
-        });
-
-        const layers = [
-          "nodes-layer",
-          "edges-layer",
-          "directions-layer",
-          "zones-layer",
-          "poi-layer",
-          "pop-layer",
-        ];
+        const layers = presentLayers;
         for (let layer of layers) {
           map.on("click", layer, displayInfo);
 
@@ -231,9 +280,59 @@ template = """
           });
         }
       });
+      // After the last frame rendered before the map enters an "idle" state.
+      map.on("idle", () => {
+        // If these two layers were not added to the map, abort
+        if (presentLayers.length < 2) {
+          return;
+        }
+
+        // Enumerate ids of the layers.
+        const toggleableLayerIds = presentLayers;
+
+        // Set up the corresponding toggle button for each layer.
+        for (const id of toggleableLayerIds) {
+          // Skip layers that already have a button set up.
+          if (document.getElementById(id)) {
+            continue;
+          }
+
+          // Create a link.
+          const link = document.createElement("a");
+          link.id = id;
+          link.href = "#";
+          link.textContent = id;
+          link.className = "active";
+
+          // Show or hide layer when the toggle is clicked.
+          link.onclick = function (e) {
+            const clickedLayer = this.textContent;
+            e.preventDefault();
+            e.stopPropagation();
+
+            const visibility = map.getLayoutProperty(
+              clickedLayer,
+              "visibility"
+            );
+
+            // Toggle layer visibility by changing the layout object's visibility property.
+            if (visibility === "visible") {
+              map.setLayoutProperty(clickedLayer, "visibility", "none");
+              this.className = "";
+            } else {
+              this.className = "active";
+              map.setLayoutProperty(clickedLayer, "visibility", "visible");
+            }
+          };
+
+          const layers = document.getElementById("menu");
+          layers.appendChild(link);
+        }
+      });
     </script>
   </body>
 </html>
+
 """
 
 
@@ -287,14 +386,10 @@ if __name__ == "__main__":
     with open(os.path.join(json_dir, "poi_1696867390.json")) as f:
         poi = f.read()
 
-    generate_map(nodes_data=nodes, save=True, city_name="spb")
-    time.sleep(1)
-    generate_map(nodes_data=nodes, edges_data=edges, save=True, city_name="spb")
-    time.sleep(1)
-    generate_map(nodes_data=nodes, zones_data=zones, save=True, city_name="spb")
-    time.sleep(1)
-    generate_map(pop_data=pop, save=True, city_name="spb")
-    time.sleep(1)
+    generate_map(nodes_data=nodes, save=True, city_name="spb", filename="nodes_only.html")
+    generate_map(nodes_data=nodes, edges_data=edges, save=True, city_name="spb", filename="graph.html")
+    generate_map(nodes_data=nodes, zones_data=zones, save=True, city_name="spb", filename="nodes_zones.html")
+    generate_map(pop_data=pop, save=True, city_name="spb", filename="pop_only.html")
     generate_map(
         nodes_data=nodes,
         edges_data=edges,
@@ -303,4 +398,5 @@ if __name__ == "__main__":
         poi_data=poi,
         save=True,
         city_name="spb",
+        filename="all_data.html",
     )
