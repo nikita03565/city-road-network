@@ -5,17 +5,22 @@ import geopandas as gpd
 import jinja2
 import networkx as nx
 import pandas as pd
-from shapely import MultiPolygon, Polygon
+from shapely import MultiPolygon, Polygon, to_geojson
 
 from city_road_network.config import highway_color_mapping, zones_color_map
+from city_road_network.utils.io import get_edgelist_from_graph, get_nodelist_from_graph
 from city_road_network.utils.utils import get_html_subdir, get_logger
+from city_road_network.writers.color_helpers import get_occupancy_color_getter
 from city_road_network.writers.geojson import (
+    export_edges,
     export_graph,
+    export_nodes,
     export_poi,
     export_population,
     export_zones,
 )
 
+print("FILE!!!!", __file__, os.path.dirname(__file__))
 logger = get_logger(__name__)
 
 template = """
@@ -375,15 +380,17 @@ def get_center(
     bounds_data: dict | None = None,
 ):
     for data in [nodes_data, pop_data, poi_data]:
-        if data:
+        if data is not None:
             feature = data["features"][0]
             return feature["geometry"]  # TODO parse??
-    if data in [zones_data, bounds_data]:
+    if zones_data is not None:
         feature = data["features"][0]
         return feature["geometry"]  # TODO parse?? return first coordinate
-    if edges_data:
+    if edges_data is not None:
         feature = edges_data["features"][0]
         return feature["geometry"]  # TODO parse?? return first coordinate
+    if bounds_data is not None:
+        return bounds_data["coordinates"][0][0][0]  # ...
     raise ValueError("No data to identify map center")
 
 
@@ -472,9 +479,14 @@ def draw_graph(
     return html
 
 
-def draw_boundaries(poly: Polygon | MultiPolygon):
+def draw_boundaries(
+    poly: Polygon | MultiPolygon,
+    save: bool = False,
+    filename: str | None = None,
+    city_name: str | None = None,
+):
     """Draws boundaries of an area of interest"""
-    html = generate_map(bounds_data=poly.__geo_interface__)
+    html = generate_map(bounds_data=to_geojson(poly), save=save, filename=filename, city_name=city_name)
     return html
 
 
@@ -502,13 +514,32 @@ def draw_trips_map(
     zones_gdf: gpd.GeoDataFrame | None = None,
     gradient: list[float] | None = None,
     by_abs_value: bool = False,
+    save: bool = False,
+    filename: str | None = None,
+    city_name: str | None = None,
 ):
     """Draws graph on map with edges color being gradient from green (low load) to red (high load)."""
     # TODO BIG TODO EXPORT GRAPH WITH COLOR GETTER
     # REMOVE EDGES THAT HAVE NO PASSES COUNTS!!!!
     # DONT FORGET TO INCLUDE ZONES?!??!?!
+    color_getter = get_occupancy_color_getter(gradient=gradient, by_abs_value=by_abs_value)
+    nodes_df = get_nodelist_from_graph(graph)
+    edges_df = get_edgelist_from_graph(graph)
 
-    pass
+    edges_df = edges_df[edges_df["passes_count"] > 0]
+
+    nodes_data = export_nodes(
+        nodes_df=nodes_df,
+        keys=None,
+        save=False,
+    )
+    edges_data = export_edges(edges_df=edges_df, keys=None, save=False, color_getter=color_getter)
+    kwargs = {"nodes_data": nodes_data, "edges_data": edges_data}
+    if zones_gdf:
+        zones_data = export_zones(zones_gdf)
+        kwargs["zones_data"] = zones_data
+    html = generate_map(**kwargs, save=save, filename=filename, city_name=city_name)
+    return html
 
 
 def draw_population(
