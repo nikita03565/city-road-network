@@ -21,7 +21,9 @@ if __name__ == "__main__":
     poi_df = pd.read_csv(os.path.join(data_dir, "poi_upd.csv"), index_col=0)
     pop_df = pd.read_csv(os.path.join(data_dir, "population.csv"), dtype={"value": float}, index_col=0)
     G = read_graph(os.path.join(data_dir, "nodelist_upd.csv"), os.path.join(data_dir, "edgelist_upd.csv"))
-    nodes, edges = export_graph(G, save=True, city_name=city_name)
-    export_zones(zones_df, save=True, city_name=city_name)
-    export_population(pop_df, save=True, city_name=city_name)
-    export_poi(poi_df, save=True, city_name=city_name)
+    nodes, edges = export_graph(
+        G, save=True, city_name=city_name, nodes_filename="nodes_last.json", edges_filename="edges_last.json"
+    )
+    export_zones(zones_df, save=True, city_name=city_name, filename="zones_last.json")
+    export_population(pop_df, save=True, city_name=city_name, filename="population_last.json")
+    export_poi(poi_df, save=True, city_name=city_name, filename="poi_last.json")

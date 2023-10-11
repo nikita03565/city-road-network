@@ -89,7 +89,6 @@ def process_edges(city_name: str | None = None) -> pd.DataFrame:
             "junction",
             "access",
             "width",
-            "geometry",
             "length",
         ],
         inplace=True,

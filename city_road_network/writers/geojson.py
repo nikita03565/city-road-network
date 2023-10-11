@@ -1,14 +1,17 @@
+import colorsys
 import json
 import os
 import time
 from ast import literal_eval
+from collections.abc import Callable
 
 import geopandas as gpd
 import networkx as nx
+import numpy as np
 import pandas as pd
-from shapely import wkt
 
 from city_road_network.config import (
+    default_crs,
     default_edge_export_keys,
     default_node_export_keys,
     highway_color_mapping,
@@ -28,202 +31,222 @@ def filter_keys(attrs: dict, allowed_keys: list[str]) -> dict:
     return {k: v for k, v in attrs.items() if k in allowed_keys}
 
 
-def export_nodes(
-    nodes_df: pd.DataFrame,
-    keys: list[str],
-    save: bool = False,
-    filename: str | None = None,
-    city_name: str | None = None,
-) -> dict:
-    nodes = {"type": "FeatureCollection", "features": []}
-
-    for _, node in nodes_df.iterrows():
-        all_attrs = node.to_dict()
-        attrs = filter_empty(filter_keys(all_attrs, keys))
-        nodes["features"].append(
-            {
-                "type": "Feature",
-                "geometry": {"type": "Point", "coordinates": [node["lon"], node["lat"]]},
-                "properties": {**attrs, "color": "blue"},
-            }
-        )
-
-    if save:
-        name = filename
-        if name is None:
-            ts = int(time.time())
-            name = f"nodes_{ts}.json"
-        json_dir = get_geojson_subdir(city_name)
-        full_name = os.path.join(json_dir, name)
-        with open(full_name, "w") as f:
-            f.write(json.dumps(nodes))
-        logger.info("Saved file %s", os.path.abspath(full_name))
-    return nodes
-
-
-def export_edges(
-    edges_df: pd.DataFrame,
-    nodes_df: pd.DataFrame,
-    keys: list[str],
-    save: bool = False,
-    filename: str | None = None,
-    city_name: str | None = None,
-) -> dict:
-    edges = {"type": "FeatureCollection", "features": []}
-
-    for _, edge in edges_df.iterrows():
-        all_attrs = edge.to_dict()
-        attrs = filter_empty(filter_keys(all_attrs, keys))
-
-        start_node = nodes_df[nodes_df["id"] == edge["start_node"]].iloc[0]
-        end_node = nodes_df[nodes_df["id"] == edge["end_node"]].iloc[0]
-
-        highway_raw = edge["highway"]
-        if isinstance(highway_raw, list):
-            highway = highway_raw[0]
-        else:
-            highway = highway_raw if not highway_raw.startswith("[") else literal_eval(highway_raw)[0]
-        color = highway_color_mapping.get(highway, "#B2BEB5")
-        edges["features"].append(
-            {
-                "type": "Feature",
-                "geometry": {
-                    "type": "LineString",
-                    "coordinates": [
-                        [start_node["lon"], start_node["lat"]],
-                        [end_node["lon"], end_node["lat"]],
-                    ],
-                },
-                "properties": {**attrs, "color": color},
-            }
-        )
-
-    if save:
-        name = filename
-        if name is None:
-            ts = int(time.time())
-            name = f"edges_{ts}.json"
-        json_dir = get_geojson_subdir(city_name)
-        full_name = os.path.join(json_dir, name)
-        with open(full_name, "w") as f:
-            f.write(json.dumps(edges))
-        logger.info("Saved file %s", os.path.abspath(full_name))
-    return edges
-
-
-def export_zones(
-    zones_df: pd.DataFrame,
-    save: bool = False,
-    filename: str | None = None,
-    city_name: str | None = None,
-) -> dict:
-    zones = {"type": "FeatureCollection", "features": []}
-    for idx, zone in zones_df.iterrows():
-        all_attrs = zone.to_dict()
-        all_attrs["id"] = idx
-        attrs = filter_empty(all_attrs)
-        color = zones_color_map[all_attrs["id"]]
-        geometry = wkt.loads(zone["geometry"])
-
-        sim_geo = gpd.GeoSeries(geometry)
-        geo_j = json.loads(sim_geo.to_json())
-        assert len(geo_j["features"]) == 1
-        zones["features"].append(
-            {
-                "type": "Feature",
-                "geometry": geo_j["features"][0]["geometry"],
-                "properties": {**attrs, "color": color},
-            }
-        )
-
-    if save:
-        name = filename
-        if name is None:
-            ts = int(time.time())
-            name = f"zones_{ts}.json"
-        json_dir = get_geojson_subdir(city_name)
-        full_name = os.path.join(json_dir, name)
-        with open(full_name, "w") as f:
-            f.write(json.dumps(zones))
-        logger.info("Saved file %s", os.path.abspath(full_name))
-    return zones
-
-
 def rgb_to_hex(rgb):
     return "#%02x%02x%02x" % rgb
 
 
-def _get_pop_color(value: float, vmax: int = 600):
+def get_pop_color(feature: dict, vmax: int = 600):
+    value = feature["properties"]["value"]
     ratio = min(value / vmax, 1)
     b_g = int(255 * (1 - ratio))
     b_g = min(b_g, 200)
     return rgb_to_hex((255, b_g, b_g))
 
 
-def export_population(
-    pop_df: pd.DataFrame, save: bool = False, filename: str | None = None, city_name: str | None = None
+def get_mapping_color_getter(mapping: dict, key: str, default: str) -> Callable:
+    def mapping_color_getter(feature, *args, **kwargs):
+        value = feature[key]
+        return mapping.get(value, default)
+
+    return mapping_color_getter
+
+
+def get_fixed_color_getter(color: str, *args, **kwargs) -> Callable:
+    def fixed_color_getter(*args, **kwargs):
+        return color
+
+    return fixed_color_getter
+
+
+def highway_color_getter(feature: dict) -> str:
+    highway_raw = feature["properties"]["highway"]
+    if isinstance(highway_raw, list):
+        highway = highway_raw[0]
+    else:
+        highway = highway_raw if not highway_raw.startswith("[") else literal_eval(highway_raw)[0]
+    color = highway_color_mapping.get(highway, "#B2BEB5")
+    return color
+
+
+def defloat(x):
+    return tuple(int(255 * i) for i in x)
+
+
+def _build_gradient(n: int = 1000):
+    """Creates yellow to red gradient"""
+    hsv = [(h, 1, 1) for h in np.linspace(0.29, 0.04, n)]
+    rgb = [colorsys.hsv_to_rgb(*tup) for tup in hsv]
+
+    # To draw gradient use this:
+    # n = 100
+    # rgb = np.array(_build_gradient(n=n))
+    # rgb = rgb.reshape((1, n, 3))
+    # rgb = np.tile(rgb, (n, 1, 1))
+    # plt.imshow(rgb)
+    # plt.show()
+    return [defloat(x) for x in rgb]
+
+
+def get_occupancy_color_getter(gradient: list | None = None, by_abs_value=False):
+    if gradient is None:
+        gradient = _build_gradient()
+
+    def occupancy_color_getter(feature: dict) -> str:
+        if by_abs_value:
+            color_idx = min(feature["properties"]["passes_count"], len(gradient) - 1)
+        else:  # by occupied percentage
+            color_idx = min(int(feature["properties"]["capacity_occupied"] * len(gradient)), len(gradient) - 1)
+        color_rgb = gradient[color_idx]
+        return rgb_to_hex(color_rgb)
+
+    return occupancy_color_getter
+
+
+def _save_file(data, default_name_template, filename=None, city_name=None):
+    name = filename
+    if name is None:
+        ts = int(time.time())
+        name = default_name_template.format(ts=ts)
+    json_dir = get_geojson_subdir(city_name)
+    full_name = os.path.join(json_dir, name)
+    with open(full_name, "w") as f:
+        f.write(json.dumps(data))
+    logger.info("Saved file %s", os.path.abspath(full_name))
+
+
+def export_df(
+    df: pd.DataFrame | gpd.GeoDataFrame,
+    keys: list[str] | None = None,
+    color_getter: Callable | None = None,
+    save: bool = False,
+    filename: str | None = None,
+    city_name: str | None = None,
+    default_filename: str | None = None,
 ) -> dict:
-    pop_dict = {"type": "FeatureCollection", "features": []}
-    for idx, pop in pop_df.iterrows():
-        all_attrs = pop.to_dict()
-        all_attrs["id"] = idx
-        attrs = filter_empty(all_attrs)
-        geometry = wkt.loads(pop["geometry"])
-        sim_geo = gpd.GeoSeries(geometry)
-        geo_j = json.loads(sim_geo.to_json())
-        assert len(geo_j["features"]) == 1
-        pop_dict["features"].append(
-            {
-                "type": "Feature",
-                "geometry": geo_j["features"][0]["geometry"],
-                "properties": {**attrs, "color": _get_pop_color(pop["value"])},
-            }
-        )
+    if not isinstance(df, gpd.GeoDataFrame):
+        df["geometry"] = gpd.GeoSeries.from_wkt(df["geometry"])
+        nodes_gdf = gpd.GeoDataFrame(df, crs=default_crs)
+    else:
+        nodes_gdf = df
+    if "id" not in nodes_gdf.columns:
+        nodes_gdf["id"] = nodes_gdf.index
+    json_data_string = nodes_gdf.to_json()
+    json_data = json.loads(json_data_string)
+
+    for feature in json_data["features"]:
+        if keys is not None:
+            feature["properties"] = filter_empty(filter_keys(feature["properties"], keys))
+        if color_getter is not None:
+            feature["properties"]["display_color"] = color_getter(feature)
 
     if save:
-        name = filename
-        if name is None:
-            ts = int(time.time())
-            name = f"pop_{ts}.json"
-        json_dir = get_geojson_subdir(city_name)
-        full_name = os.path.join(json_dir, name)
-        with open(full_name, "w") as f:
-            f.write(json.dumps(pop_dict))
-        logger.info("Saved file %s", os.path.abspath(full_name))
-    return pop_dict
+        _save_file(json_data, default_name_template=default_filename, filename=filename, city_name=city_name)
+    return json_data
+
+
+def export_nodes(
+    nodes_df: pd.DataFrame | gpd.GeoDataFrame,
+    keys: list[str] | None = None,
+    color_getter: Callable | None = None,
+    save: bool = False,
+    filename: str | None = None,
+    city_name: str | None = None,
+) -> dict:
+    if color_getter is None:
+        color_getter = get_fixed_color_getter("blue")
+    return export_df(
+        df=nodes_df,
+        keys=keys,
+        color_getter=color_getter,
+        save=save,
+        filename=filename,
+        city_name=city_name,
+        default_filename="nodes_{ts}.json",
+    )
+
+
+def export_edges(
+    edges_df: pd.DataFrame | gpd.GeoDataFrame,
+    keys: list[str] | None = None,
+    color_getter: Callable | None = None,
+    save: bool = False,
+    filename: str | None = None,
+    city_name: str | None = None,
+) -> dict:
+    if color_getter is None:
+        color_getter = highway_color_getter
+    return export_df(
+        df=edges_df,
+        keys=keys,
+        color_getter=color_getter,
+        save=save,
+        filename=filename,
+        city_name=city_name,
+        default_filename="edges_{ts}.json",
+    )
+
+
+def export_zones(
+    zones_df: pd.DataFrame | gpd.GeoDataFrame,
+    keys: list[str] | None = None,
+    color_getter: Callable | None = None,
+    save: bool = False,
+    filename: str | None = None,
+    city_name: str | None = None,
+) -> dict:
+    if color_getter is None:
+        color_getter = get_mapping_color_getter(zones_color_map, "id", "#fc4503")
+    return export_df(
+        df=zones_df,
+        keys=keys,
+        color_getter=color_getter,
+        save=save,
+        filename=filename,
+        city_name=city_name,
+        default_filename="zones_{ts}.json",
+    )
+
+
+def export_population(
+    pop_df: pd.DataFrame | gpd.GeoDataFrame,
+    keys: list[str] | None = None,
+    color_getter: Callable | None = None,
+    save: bool = False,
+    filename: str | None = None,
+    city_name: str | None = None,
+) -> dict:
+    if color_getter is None:
+        color_getter = get_pop_color
+    return export_df(
+        df=pop_df,
+        keys=keys,
+        color_getter=color_getter,
+        save=save,
+        filename=filename,
+        city_name=city_name,
+        default_filename="pop_{ts}.json",
+    )
 
 
 def export_poi(
-    poi_df: pd.DataFrame, save: bool = False, filename: str | None = None, city_name: str | None = None
+    poi_df: pd.DataFrame | gpd.GeoDataFrame,
+    keys: list[str] | None = None,
+    color_getter: Callable | None = None,
+    save: bool = False,
+    filename: str | None = None,
+    city_name: str | None = None,
 ) -> dict:
-    poi_dict = {"type": "FeatureCollection", "features": []}
-    for idx, pop in poi_df.iterrows():
-        all_attrs = pop.to_dict()
-        all_attrs["id"] = idx
-        attrs = filter_empty(all_attrs)
-        geometry = wkt.loads(pop["geometry"])
-        sim_geo = gpd.GeoSeries(geometry)
-        geo_j = json.loads(sim_geo.to_json())
-        assert len(geo_j["features"]) == 1
-        poi_dict["features"].append(
-            {
-                "type": "Feature",
-                "geometry": geo_j["features"][0]["geometry"],
-                "properties": {**attrs, "color": "#32a852"},
-            }
-        )
-
-    if save:
-        name = filename
-        if name is None:
-            ts = int(time.time())
-            name = f"poi_{ts}.json"
-        json_dir = get_geojson_subdir(city_name)
-        full_name = os.path.join(json_dir, name)
-        with open(full_name, "w") as f:
-            f.write(json.dumps(poi_dict))
-        logger.info("Saved file %s", os.path.abspath(full_name))
-    return poi_dict
+    if color_getter is None:
+        color_getter = get_fixed_color_getter("#32a852")
+    return export_df(
+        df=poi_df,
+        keys=keys,
+        color_getter=color_getter,
+        save=save,
+        filename=filename,
+        city_name=city_name,
+        default_filename="poi_{ts}.json",
+    )
 
 
 def export_graph(
@@ -242,9 +265,19 @@ def export_graph(
 
     nodes_df = get_nodelist_from_graph(graph)
     edges_df = get_edgelist_from_graph(graph)
-    # TODO BUILD NAME WITH SAME TS HERE??
-    nodes_dict = export_nodes(nodes_df, node_export_keys, save=save, city_name=city_name, filename=nodes_filename)
+
+    nodes_dict = export_nodes(
+        nodes_df=nodes_df,
+        keys=node_export_keys,
+        save=save,
+        city_name=city_name,
+        filename=nodes_filename,
+    )
     edges_dict = export_edges(
-        edges_df, nodes_df, edge_export_keys, save=save, city_name=city_name, filename=edges_filename
+        edges_df=edges_df,
+        keys=edge_export_keys,
+        save=save,
+        city_name=city_name,
+        filename=edges_filename,
     )
     return nodes_dict, edges_dict
