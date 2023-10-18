@@ -7,7 +7,6 @@ import geopandas as gpd
 import networkx as nx
 import pandas as pd
 from geopandas.array import GeometryDtype
-from shapely import wkt
 
 from city_road_network.config import (
     default_crs,
@@ -35,12 +34,16 @@ def filter_keys(attrs: dict, allowed_keys: list[str]) -> dict:
     return {k: v for k, v in attrs.items() if k in allowed_keys}
 
 
+def _is_geometry_column(df, col):
+    return isinstance(df[col].dtype, GeometryDtype)
+
+
 def _convert_to_wkt(df: pd.DataFrame | gpd.GeoDataFrame, columns: list[str]) -> pd.DataFrame | gpd.GeoDataFrame:
     copy_df = df.copy(deep=True)
     for col in columns:
-        if not isinstance(copy_df[col].dtype, GeometryDtype):
+        if not _is_geometry_column(copy_df, col):
             continue
-        copy_df[col] = copy_df[col].apply(wkt.dumps)
+        copy_df[col] = gpd.GeoSeries.to_wkt(copy_df[col])
     return copy_df
 
 
@@ -65,7 +68,7 @@ def export_df(
     city_name: str | None = None,
     default_filename: str | None = None,
 ) -> dict:
-    if not isinstance(df, gpd.GeoDataFrame):
+    if not _is_geometry_column(df, "geometry"):
         df["geometry"] = gpd.GeoSeries.from_wkt(df["geometry"])
         gdf = gpd.GeoDataFrame(df, crs=default_crs)
     else:

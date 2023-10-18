@@ -1,10 +1,12 @@
 import re
 from math import ceil, floor
 
+import geopandas as gpd
 import numpy as np
 import pandas as pd
 from shapely import Point, Polygon
 
+from city_road_network.config import default_crs
 from city_road_network.downloaders.ghsl import get_tile, get_tile_ids
 from city_road_network.utils.utils import convert_coordinates
 from city_road_network.writers.csv import save_dataframe
@@ -157,5 +159,6 @@ def process_population(poly: Polygon, city_name: str | None = None) -> pd.DataFr
             df_data.append({"lon": lon, "lat": lat, "geometry": Point(lon, lat), "value": value})
 
     pop_df = pd.DataFrame(df_data)
+    pop_gdf = gpd.GeoDataFrame(pop_df, crs=default_crs)
     save_dataframe(pop_df, "population.csv", city_name=city_name)
-    return pop_df
+    return pop_gdf
