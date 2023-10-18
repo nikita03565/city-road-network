@@ -6,6 +6,8 @@ from collections.abc import Callable
 import geopandas as gpd
 import networkx as nx
 import pandas as pd
+from geopandas.array import GeometryDtype
+from shapely import wkt
 
 from city_road_network.config import (
     default_crs,
@@ -33,6 +35,15 @@ def filter_keys(attrs: dict, allowed_keys: list[str]) -> dict:
     return {k: v for k, v in attrs.items() if k in allowed_keys}
 
 
+def _convert_to_wkt(df: pd.DataFrame | gpd.GeoDataFrame, columns: list[str]) -> pd.DataFrame | gpd.GeoDataFrame:
+    copy_df = df.copy(deep=True)
+    for col in columns:
+        if not isinstance(copy_df[col].dtype, GeometryDtype):
+            continue
+        copy_df[col] = copy_df[col].apply(wkt.dumps)
+    return copy_df
+
+
 def _save_file(data, default_name_template, filename=None, city_name=None):
     name = filename
     if name is None:
@@ -56,12 +67,12 @@ def export_df(
 ) -> dict:
     if not isinstance(df, gpd.GeoDataFrame):
         df["geometry"] = gpd.GeoSeries.from_wkt(df["geometry"])
-        nodes_gdf = gpd.GeoDataFrame(df, crs=default_crs)
+        gdf = gpd.GeoDataFrame(df, crs=default_crs)
     else:
-        nodes_gdf = df
-    if "id" not in nodes_gdf.columns:
-        nodes_gdf["id"] = nodes_gdf.index
-    json_data_string = nodes_gdf.to_json()
+        gdf = df
+    if "id" not in gdf.columns:
+        gdf["id"] = gdf.index
+    json_data_string = gdf.to_json()
     json_data = json.loads(json_data_string)
 
     for feature in json_data["features"]:
@@ -127,6 +138,7 @@ def export_zones(
 ) -> dict:
     if color_getter is None:
         color_getter = get_mapping_color_getter(zones_color_map, "id", "#fc4503")
+    zones_df = _convert_to_wkt(zones_df, ["centroid"])
     return export_df(
         df=zones_df,
         keys=keys,

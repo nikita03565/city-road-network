@@ -50,7 +50,6 @@ def get_center(
     raise ValueError("No data to identify map center")
 
 
-# TODO BIG TODO remove all color bullshit from geojson module??
 def generate_map(
     nodes_data: dict | None = None,
     edges_data: dict | None = None,
@@ -158,9 +157,6 @@ def draw_zones(
 ):
     """Draws zones on map"""
     zones_data = export_zones(zones_gdf, keys=popup_keys)
-    # TODO ADD COLORS HERE?
-    # PASS KEYS FROM HERE?
-
     if color_map is None:
         color_map = zones_color_map
     html = generate_map(zones_data=zones_data, save=save, filename=filename, city_name=city_name)
