@@ -1,89 +1,94 @@
-import colorsys
 import json
 import os
-from ast import literal_eval
+import time
 
-import folium
 import geopandas as gpd
+import jinja2
 import networkx as nx
-import numpy as np
 import pandas as pd
-from pyproj import Geod
-from shapely import MultiPolygon, Polygon
+from shapely import MultiPolygon, Polygon, to_geojson
 
 from city_road_network.config import highway_color_mapping, zones_color_map
+from city_road_network.utils.io import get_edgelist_from_graph, get_nodelist_from_graph
 from city_road_network.utils.utils import get_html_subdir, get_logger
+from city_road_network.writers.color_helpers import get_occupancy_color_getter
+from city_road_network.writers.geojson import (
+    export_edges,
+    export_graph,
+    export_nodes,
+    export_poi,
+    export_population,
+    export_zones,
+)
 
 logger = get_logger(__name__)
-_geodesic = Geod(ellps="WGS84")
+
+with open(os.path.join(os.path.dirname(__file__), "html_templates", "main.html")) as f:
+    template = f.read()
 
 
-def _create_arrow(start_node, end_node, color, popup, radius=4, opacity=0.5):
-    """Creates arrow to indicate edge direction"""
-    rot = _geodesic.inv(start_node["lon"], start_node["lat"], end_node["lon"], end_node["lat"])[0] - 90
-    diff = [(-start_node["lat"] + end_node["lat"]), (-start_node["lon"] + end_node["lon"])]
-    offset_rate = 0.4
-    center = [(start_node["lat"] + diff[0] * offset_rate), (start_node["lon"] + diff[1] * offset_rate)]
+def get_center(
+    nodes_data: dict | None = None,
+    edges_data: dict | None = None,
+    zones_data: dict | None = None,
+    pop_data: dict | None = None,
+    poi_data: dict | None = None,
+    bounds_data: dict | None = None,
+):
+    for data in [nodes_data, pop_data, poi_data]:
+        if data is not None and data["features"]:
+            feature = data["features"][0]
+            return feature["geometry"]["coordinates"]
+    if zones_data is not None and zones_data["features"]:
+        feature = zones_data["features"][0]
+        return feature["geometry"]["coordinates"][0][0]
+    if edges_data is not None and edges_data["features"]:
+        feature = edges_data["features"][0]
+        return feature["geometry"]["coordinates"][0][0]
+    if bounds_data is not None and bounds_data:
+        return bounds_data["coordinates"][0][0]  # ...
+    raise ValueError("No data to identify map center")
 
-    return folium.RegularPolygonMarker(
-        location=center,
-        color=color,
-        fill=True,
-        fill_color=color,
-        fill_opacity=opacity,
-        opacity=opacity,
-        number_of_sides=3,
-        rotation=rot,
-        radius=radius,
-        popup=popup,
+
+def generate_map(
+    nodes_data: dict | None = None,
+    edges_data: dict | None = None,
+    zones_data: dict | None = None,
+    pop_data: dict | None = None,
+    poi_data: dict | None = None,
+    bounds_data: dict | None = None,
+    save=True,
+    filename=None,
+    city_name=None,
+):
+    e = jinja2.Environment()
+    t = e.from_string(template)
+
+    center = get_center(nodes_data, edges_data, zones_data, pop_data, poi_data, bounds_data)
+    new_html = t.render(
+        **{
+            "center_lon": center[0],
+            "center_lat": center[1],
+            "nodes_data": json.dumps(nodes_data) if nodes_data is not None else "null",
+            "edges_data": json.dumps(edges_data) if edges_data is not None else "null",
+            "zones_data": json.dumps(zones_data) if zones_data is not None else "null",
+            "bounds_data": json.dumps(bounds_data) if bounds_data is not None else "null",
+            "pop_data": json.dumps(pop_data) if pop_data is not None else "null",
+            "poi_data": json.dumps(poi_data) if poi_data is not None else "null",
+        }
     )
 
-
-def defloat(x):
-    return tuple(int(255 * i) for i in x)
-
-
-def _build_gradient(n: int = 1000):
-    """Creates yellow to red gradient"""
-    hsv = [(h, 1, 1) for h in np.linspace(0.29, 0.04, n)]
-    rgb = [colorsys.hsv_to_rgb(*tup) for tup in hsv]
-
-    # To draw gradient use this:
-    # n = 100
-    # rgb = np.array(_build_gradient(n=n))
-    # rgb = rgb.reshape((1, n, 3))
-    # rgb = np.tile(rgb, (n, 1, 1))
-    # plt.imshow(rgb)
-    # plt.show()
-    return [defloat(x) for x in rgb]
-
-
-def create_map(location: tuple[float, float], zoom_start: int | None = 10):
-    map = folium.Map(
-        location=location,
-        tiles="OpenStreetMap",
-        zoom_start=zoom_start,
-    )
-    return map
-
-
-def save_map(map: folium.Map, filename: str | None = None, city_name: str | None = None):
-    """Saves map to subdirectory `city_name` with name `filename`
-
-    :param map: Map object
-    :type map: folium.Map
-    :param filename: Name of output file
-    :type filename: Optional[str], optional
-    :param city_name: Name of subdirectory to save map to
-    :type city_name: Optional[str], optional
-    """
-    if not filename:
-        logger.warning("File name for map is not provided")
-        filename = "map.html"
-    html_dir = get_html_subdir(city_name)
-    full_name = os.path.join(html_dir, filename)
-    map.save(full_name)
-    logger.info("Saved file %s", os.path.abspath(full_name))
+    if save:
+        html_dir = get_html_subdir(city_name=city_name)
+        name = filename
+        if name is None:
+            ts = int(time.time())
+            name = f"map_{ts}.html"
+        full_name = os.path.join(html_dir, name)
+        with open(full_name, "w") as f:
+            f.write(new_html)
+        print("Saved file %s" % os.path.abspath(full_name))
+    return new_html
 
 
 def _get_graph_legend_html() -> str:
@@ -119,130 +124,43 @@ def draw_graph(
     graph: nx.DiGraph,
     node_popup_keys: list[str] | None = None,
     way_popup_keys: list[str] | None = None,
-    map: folium.Map | None = None,
     save: bool = False,
     filename: str | None = None,
     city_name: str | None = None,
 ):
     """Draws graph on map"""
-    if map is None:
-        node_data = next(iter(graph.nodes(data=True)))[1]
-        location = node_data["lat"], node_data["lon"]
-        map = create_map(location)
-    if node_popup_keys is None:
-        node_popup_keys = ["id", "highway", "zone"]
-    if way_popup_keys is None:
-        way_popup_keys = [
-            "start_node",
-            "end_node",
-            "osmid",
-            "highway",
-            "surface",
-            "speed (km/h)",
-            "lanes",
-            "oneway",
-            "length (m)",
-            "name",
-            "capacity (veh/h)",
-            "free_flow_time (h)",
-        ]
-    legend_html = _get_graph_legend_html()
-    map.get_root().html.add_child(folium.Element(legend_html))
-    opacity = 0.5
-
-    for idx, node_data in graph.nodes(data=True):
-        node_data["id"] = idx
-
-        popup = "<br/>".join([f"{key}: {node_data[key]}" for key in node_popup_keys if key in node_data])
-        map.add_child(
-            folium.Circle(location=(node_data["lat"], node_data["lon"]), fill=True, radius=3, color="blue", popup=popup)
-        )
-
-    for start_id, end_id, edge_data in graph.edges(data=True):
-        start_node = graph.nodes[start_id]
-        end_node = graph.nodes[end_id]
-
-        popup = "<br/>".join([f"{key}: {edge_data[key]}" for key in way_popup_keys if key in edge_data])
-
-        highway_raw = edge_data["highway"]
-        if isinstance(highway_raw, list):
-            highway = highway_raw[0]
-        else:
-            highway = highway_raw if not highway_raw.startswith("[") else literal_eval(highway_raw)[0]
-        color = highway_color_mapping.get(highway, "#B2BEB5")
-        map.add_child(_create_arrow(start_node, end_node, color, popup, opacity=opacity))
-        map.add_child(
-            folium.PolyLine(
-                locations=[
-                    [start_node["lat"], start_node["lon"]],
-                    [end_node["lat"], end_node["lon"]],
-                ],
-                popup=popup,
-                opacity=0.7,
-                color=color,
-            )
-        )
-    if save:
-        save_map(map, filename=filename, city_name=city_name)
-    return map
+    nodes_data, edges_data = export_graph(graph, node_export_keys=node_popup_keys, edge_export_keys=way_popup_keys)
+    html = generate_map(nodes_data=nodes_data, edges_data=edges_data, save=save, filename=filename, city_name=city_name)
+    return html
 
 
-def draw_boundaries(poly: Polygon | MultiPolygon, map: folium.Map | None = None):
+def draw_boundaries(
+    poly: Polygon | MultiPolygon,
+    save: bool = False,
+    filename: str | None = None,
+    city_name: str | None = None,
+):
     """Draws boundaries of an area of interest"""
-    if isinstance(poly, MultiPolygon):
-        location_point = poly.geoms[0].centroid
-    else:
-        location_point = poly.centroid
-    location = location_point.y, location_point.x
-    if map is None:
-        map = create_map(location=location)
-    map.add_child(folium.GeoJson(data=poly.__geo_interface__))
-    return map
+    geojson_string = to_geojson(poly)
+    geojson_data = json.loads(geojson_string)
+    html = generate_map(bounds_data=geojson_data, save=save, filename=filename, city_name=city_name)
+    return html
 
 
 def draw_zones(
     zones_gdf: gpd.GeoDataFrame,
     popup_keys: list[str] | None = None,
     color_map: dict | None = None,
-    map: folium.Map | None = None,
     save: bool = False,
     filename: str | None = None,
     city_name: str | None = None,
 ):
-    "Draws zones on map"
-    if map is None:
-        location_point = zones_gdf["geometry"][0].centroid
-        location = location_point.y, location_point.x
-        map = create_map(location)
-    if popup_keys is None:
-        popup_keys = ["id", "name", "pop", "poi_count", "poi_attraction", "production"]
+    """Draws zones on map"""
+    zones_data = export_zones(zones_gdf, keys=popup_keys)
     if color_map is None:
         color_map = zones_color_map
-    for idx, zone in zones_gdf.iterrows():
-        sim_geo = gpd.GeoSeries(zone[["geometry"]])
-        geo_j = json.loads(sim_geo.to_json())
-
-        geo_j["features"][0]["properties"]["id"] = idx
-
-        geo_j = folium.GeoJson(
-            data=json.dumps(geo_j),
-            style_function=lambda x: {
-                "fillColor": zones_color_map[x["properties"]["id"]],
-                "opacity": 0.4,
-                "fillOpacity": 0.5,
-            },
-        )
-        zone["id"] = idx
-        popup_dict = {key: zone.get(key) for key in popup_keys if key in zone}
-        for key in popup_dict:
-            if isinstance(popup_dict[key], float):
-                popup_dict[key] = f"{popup_dict[key]:.2f}"
-        zone_popup = "<br/>".join([f"{key}: {value}" for key, value in popup_dict.items()])
-        folium.Popup(zone_popup).add_to(geo_j)
-        geo_j.add_to(map)
-    if save:
-        save_map(map, filename=filename, city_name=city_name)
-    return map
+    html = generate_map(zones_data=zones_data, save=save, filename=filename, city_name=city_name)
+    return html
 
 
 def draw_trips_map(
@@ -250,111 +168,53 @@ def draw_trips_map(
     zones_gdf: gpd.GeoDataFrame | None = None,
     gradient: list[float] | None = None,
     by_abs_value: bool = False,
+    save: bool = False,
+    filename: str | None = None,
+    city_name: str | None = None,
 ):
     """Draws graph on map with edges color being gradient from green (low load) to red (high load)."""
-    if gradient is None:
-        gradient = _build_gradient()
-    node_data = next(iter(graph.nodes(data=True)))[1]
-    location = node_data["lat"], node_data["lon"]
-    map = create_map(location)
+    # TODO BIG TODO EXPORT GRAPH WITH COLOR GETTER
+    # REMOVE EDGES THAT HAVE NO PASSES COUNTS!!!!
+    # DONT FORGET TO INCLUDE ZONES?!??!?!
+    color_getter = get_occupancy_color_getter(gradient=gradient, by_abs_value=by_abs_value)
+    nodes_df = get_nodelist_from_graph(graph)
+    edges_df = get_edgelist_from_graph(graph)
 
-    if zones_gdf is not None:
-        map = draw_zones(zones_gdf, map=map)
-    for start_id, end_id, edge_data in graph.edges(data=True):
-        if edge_data["passes_count"] == 0:
-            continue
-        start_node = graph.nodes[start_id]
-        end_node = graph.nodes[end_id]
-        popup = "<br/>".join([f"{key}: {edge_data[key]}" for key in edge_data])
-        if by_abs_value:
-            color_idx = min(edge_data["passes_count"], len(gradient) - 1)
-            color = f"rgb{gradient[color_idx]}"
-        else:  # by occupied percentage
-            color_idx = min(int(edge_data["capacity_occupied"] * len(gradient)), len(gradient) - 1)
-            color = f"rgb{gradient[color_idx]}"
-        opacity = 0.5
-        map.add_child(_create_arrow(start_node, end_node, color, popup, opacity=opacity))
-        map.add_child(
-            folium.PolyLine(
-                locations=[
-                    [start_node["lat"], start_node["lon"]],
-                    [end_node["lat"], end_node["lon"]],
-                ],
-                popup=popup,
-                opacity=opacity,
-                color=color,
-            )
-        )
-    return map
+    edges_df = edges_df[edges_df["passes_count"] > 0]
 
-
-def _get_opacity(value: float, min_opacity: float):
-    opacity = max(value / 1000, min_opacity)
-    return opacity
-
-
-def draw_trip_distribution(
-    zones_gdf: gpd.GeoDataFrame, trip_mat: np.array, map: folium.Map | None = None, min_opacity: float = 0.01
-):
-    """Draws OD-matrix on map"""
-    if map is None:
-        map = draw_zones(zones_gdf)
-    n = trip_mat.shape[0]
-    for i in range(n):
-        for j in range(n):
-            value = trip_mat[i, j]
-            opacity = _get_opacity(value, min_opacity)
-            if opacity == min_opacity:
-                continue
-            o_zone = zones_gdf.iloc[i]
-            d_zone = zones_gdf.iloc[j]
-
-            popup = f"From {o_zone['name']} to {d_zone['name']}: {value}"
-            color = "blue"
-            origin = {"lat": o_zone["centroid"].y, "lon": o_zone["centroid"].x}
-            destination = {"lat": d_zone["centroid"].y, "lon": d_zone["centroid"].x}
-
-            map.add_child(_create_arrow(origin, destination, color, popup, opacity=opacity))
-            map.add_child(
-                folium.PolyLine(
-                    locations=[
-                        [origin["lat"], origin["lon"]],
-                        [destination["lat"], destination["lon"]],
-                    ],
-                    popup=popup,
-                    opacity=opacity,
-                    color=color,
-                )
-            )
-    return map
-
-
-def _get_pop_color(value: float, vmax: int = 600):
-    ratio = min(value / vmax, 1)
-    b_g = int(255 * (1 - ratio))
-    b_g = min(b_g, 200)
-    return f"rgb(255,{b_g},{b_g})"
+    nodes_data = export_nodes(
+        nodes_df=nodes_df,
+        keys=None,
+        save=False,
+    )
+    edges_data = export_edges(edges_df=edges_df, keys=None, save=False, color_getter=color_getter)
+    kwargs = {"nodes_data": nodes_data, "edges_data": edges_data}
+    if zones_gdf:
+        zones_data = export_zones(zones_gdf)
+        kwargs["zones_data"] = zones_data
+    html = generate_map(**kwargs, save=save, filename=filename, city_name=city_name)
+    return html
 
 
 def draw_population(
     pop_df: pd.DataFrame,
-    map: folium.Map | None = None,
+    save: bool = False,
+    filename: str | None = None,
+    city_name: str | None = None,
+):
+    pop_data = export_population(pop_df)
+    """Draws population distribution on map"""
+    html = generate_map(pop_data=pop_data, save=save, filename=filename, city_name=city_name)
+    return html
+
+
+def draw_poi(
+    poi_df: pd.DataFrame,
     save: bool = False,
     filename: str | None = None,
     city_name: str | None = None,
 ):
     """Draws population distribution on map"""
-    point = pop_df["geometry"][0]
-    location = point.y, point.x
-    if map is None:
-        map = create_map(location)
-    vmax = pop_df["value"].max()
-    for _, row in pop_df.iterrows():
-        value = row["value"]
-        if not value or value <= 0:
-            continue
-        color = _get_pop_color(value, vmax=vmax)
-        map.add_child(folium.Circle(location=(row["lat"], row["lon"]), fill=True, radius=1, color=color, popup=value))
-    if save:
-        save_map(map, filename, city_name)
-    return map
+    poi_data = export_poi(poi_df)
+    html = generate_map(poi_data=poi_data, save=save, filename=filename, city_name=city_name)
+    return html

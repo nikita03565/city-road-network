@@ -4,7 +4,7 @@ import os
 import geopandas as gpd
 import networkx as nx
 import pandas as pd
-from shapely import Point
+from shapely import LineString, Point
 
 from city_road_network.downloaders.osm import OSMData
 from city_road_network.utils.utils import get_data_subdir, get_logger
@@ -26,7 +26,12 @@ def save_graph(graph: nx.MultiDiGraph, city_name: str | None = None):
     edges_data_list = []
 
     for start_id, end_id, key, edge_data in graph.edges(data=True, keys=True):
-        edges_data_list.append({"start_node": start_id, "end_node": end_id, "key": key, **edge_data})
+        start_node = graph.nodes[start_id]
+        end_node = graph.nodes[end_id]
+        geometry = LineString([(start_node["lon"], start_node["lat"]), (end_node["lon"], end_node["lat"])])
+        edges_data_list.append(
+            {"start_node": start_id, "end_node": end_id, "key": key, **edge_data, "geometry": geometry}
+        )
 
     node_data_list = []
 
