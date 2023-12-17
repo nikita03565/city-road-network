@@ -32,7 +32,12 @@ def _get_base_capacity(lanes: int | str, oneway: bool) -> int:
 
 
 def _estimate_capacity(row):
-    lanes = literal_eval(row["lanes"])
+    lanes = row["lanes"]
+    if isinstance(lanes, str):
+        try:
+            lanes = float(lanes)
+        except (ValueError, TypeError):
+            lanes = literal_eval(lanes)
     if isinstance(lanes, float):
         lanes = round(lanes)
     if isinstance(lanes, int):
@@ -40,7 +45,7 @@ def _estimate_capacity(row):
     if isinstance(lanes, list):
         capacities = [_get_base_capacity(lanes_value, row["oneway"]) for lanes_value in lanes]
         return sum(capacities) // len(capacities)
-    raise ValueError(f"Unexpected lanes {lanes} of type {type(lanes)}")
+    raise ValueError(f"Unexpected lanes {row['lanes']}: {lanes} of type {type(row['lanes'])}: {type(lanes)}")
 
 
 def _get_avg_value(row, key):
